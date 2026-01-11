@@ -40,7 +40,7 @@ class CallSpreadTrade:
                 if quantity == 0:
                     print("quantity can't be zero")
                     exit(1)
-                self.utils.place_call_spread(atm_strike, quantity * 75)
+                self.utils.place_call_spread(atm_strike, quantity * 65)
                 self.opened_first_trade = True
                 self.call_spread_strike_price_1 = atm_strike
                 self.call_spread_quantity_1 = quantity
@@ -56,12 +56,12 @@ class CallSpreadTrade:
                     continue
                 print(f"Current Nifty Spot: {spot_price}")
 
-                if spot_price <= call_spread_level_2:
+                if spot_price >= call_spread_level_2:
                     print(f"Sell trigger hit! Placing spread at {spot_price}")
                     quantity = call_quantity_in_lots / 2
                     atm_strike = self.utils.get_atm_strike(spot_price)
                     print("Atm strike:", atm_strike)
-                    self.utils.place_call_spread(atm_strike, quantity * 50)
+                    self.utils.place_call_spread(atm_strike, quantity * 65)
                     self.opened_second_trade = True
                     self.call_spread_strike_price_2 = atm_strike
                     self.call_spread_quantity_2 = quantity
@@ -84,23 +84,23 @@ class CallSpreadTrade:
                     continue
 
                 candle_open = candle_data.get('open')
-                candle_high = candle_data.get('high')
+                candle_close = candle_data.get('close')
 
-                print(f"15-min Candle - Open: {candle_open}, High: {candle_high}, SL Level: {call_sl_level}")
+                print(f"15-min Candle - Open: {candle_open}, High: {candle_close}, SL Level: {call_sl_level}")
 
                 # Check if candle open or high breaches the stop loss level
-                if (candle_open and candle_open >= call_sl_level) or (candle_high and candle_high >= call_sl_level):
-                    print(f"Stop Loss triggered! Candle Open: {candle_open}, High: {candle_high}")
+                if (candle_open and candle_open >= call_sl_level) or (candle_close and candle_close >= call_sl_level):
+                    print(f"Stop Loss triggered! Candle Open: {candle_open}, High: {candle_close}")
 
                     # Close first trade if opened
                     if self.opened_first_trade:
                         print(f"Closing first call spread trade at strike {self.call_spread_strike_price_1}")
-                        self.utils.close_call_spread(self.call_spread_strike_price_1, self.call_spread_quantity_1)
+                        self.utils.close_call_spread(self.call_spread_strike_price_1, self.call_spread_quantity_1 * 65)
 
                     # Close second trade if opened
                     if self.opened_second_trade:
                         print(f"Closing second call spread trade at strike {self.call_spread_strike_price_2}")
-                        self.utils.close_call_spread(self.call_spread_strike_price_2, self.call_spread_quantity_2)
+                        self.utils.close_call_spread(self.call_spread_strike_price_2, self.call_spread_quantity_2 * 65)
 
                     self.close_call_spreads_trade = True
                     print("All call spread trades closed successfully")

@@ -8,7 +8,7 @@ put_spread = False
 # CALL spread
 ########
 call_spread_level_1=25000
-call_spread_level_2=None
+call_spread_level_2=25100
 call_sl_level = 26000
 call_target_level = 23000
 call_quantity_in_lots = 1

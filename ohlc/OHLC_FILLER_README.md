@@ -244,7 +244,7 @@ For issues related to:
 
 - [`fill_ohlc_data.py`](fill_ohlc_data.py) - Main script to fill OHLC data
 - [`inspect_excel.py`](inspect_excel.py) - Utility to inspect Excel file structure
-- [`requirements.txt`](requirements.txt) - Python dependencies
+- [`requirements.txt`](../requirements.txt) - Python dependencies
 - [`OHLC_FILLER_README.md`](OHLC_FILLER_README.md) - This documentation
 
 ## License

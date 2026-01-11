@@ -95,6 +95,60 @@ class Utils:
 
         print(place_sell_order_response)
 
+    def place_put_spread(self, strike_price, quantity):
+        place_buy_order_response = self.groww.place_order(
+            trading_symbol=f"NIFTY{expiry}{strike_price - spread_gap}PE",
+            quantity=quantity,
+            validity=self.groww.VALIDITY_DAY,
+            exchange=self.groww.EXCHANGE_NSE,
+            segment=self.groww.SEGMENT_FNO,
+            product=self.groww.PRODUCT_MIS,
+            order_type=self.groww.ORDER_TYPE_MARKET,
+            transaction_type=self.groww.TRANSACTION_TYPE_BUY,
+        )
+
+        print(place_buy_order_response)
+
+        place_sell_order_response = self.groww.place_order(
+            trading_symbol=f"NIFTY{expiry}{strike_price}PE",
+            quantity=quantity,
+            validity=self.groww.VALIDITY_DAY,
+            exchange=self.groww.EXCHANGE_NSE,
+            segment=self.groww.SEGMENT_FNO,
+            product=self.groww.PRODUCT_MIS,
+            order_type=self.groww.ORDER_TYPE_MARKET,
+            transaction_type=self.groww.TRANSACTION_TYPE_SELL,
+        )
+
+        print(place_sell_order_response)
+
+    def close_put_spread(self, strike_price, quantity):
+        place_buy_order_response = self.groww.place_order(
+            trading_symbol=f"NIFTY{expiry}{strike_price}PE",
+            quantity=quantity,
+            validity=self.groww.VALIDITY_DAY,
+            exchange=self.groww.EXCHANGE_NSE,
+            segment=self.groww.SEGMENT_FNO,
+            product=self.groww.PRODUCT_MIS,
+            order_type=self.groww.ORDER_TYPE_MARKET,
+            transaction_type=self.groww.TRANSACTION_TYPE_BUY,
+        )
+
+        print(place_buy_order_response)
+
+        place_sell_order_response = self.groww.place_order(
+            trading_symbol=f"NIFTY{expiry}{strike_price - spread_gap}PE",
+            quantity=quantity,
+            validity=self.groww.VALIDITY_DAY,
+            exchange=self.groww.EXCHANGE_NSE,
+            segment=self.groww.SEGMENT_FNO,
+            product=self.groww.PRODUCT_MIS,
+            order_type=self.groww.ORDER_TYPE_MARKET,
+            transaction_type=self.groww.TRANSACTION_TYPE_SELL,
+        )
+
+        print(place_sell_order_response)
+
     def close_all_fno_trades(self):
         """
         Close all open FNO (Futures & Options) trades by squaring off positions
