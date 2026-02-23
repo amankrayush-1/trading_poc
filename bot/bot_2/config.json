@@ -1,22 +1,8 @@
 {
-  "sell_1": {
-    "r1": "23000"
-  },
-  "sell_2": {
-    "r1": "23000",
-    "r2": "24000"
-  },
-  "sell_3": {
-    "r1": "23000"
-  },
-  "sell_4": {
-  },
-  "sell_5": {
-  },
-  "buy_1": {
-  },
-  "strategy": "sell_1",
-  "expiry": "28NOV",
+  "g1": "23000",
+  "g2": "23200",
+  "r1": "23500",
+  "expiry": "28FEB",
   "spread_gap": "200",
   "trading_symbol": "nifty",
   "exchange": "nse",

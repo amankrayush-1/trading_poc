@@ -1,87 +1,83 @@
 """
-Bot Driver/Main Class
-This module serves as the entry point for the trading bot.
-It reads the configuration, determines which strategy to use, and executes it across multiple accounts in parallel.
+Bot 2 - Standalone Trading Bot
+Entry point for Bot 2 with G1, G2, R1 level-based strategy
 """
 
 import sys
-from typing import Optional, Dict, Any, List
+import json
+from typing import Dict, Any, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from growwapi import GrowwAPI
+import os
 
-from bot.config_reader import ConfigReader
-from bot.utils import Utils
-from bot.sell_1.strategy import Sell1Strategy
-from bot.sell_2.strategy import Sell2Strategy
-from bot.sell_3.strategy import Sell3Strategy
-from bot.sell_4.strategy import Sell4Strategy
-from bot.sell_5.strategy import Sell5Strategy
-from bot.buy_1.strategy import Buy1Strategy
+# Add parent directory to path to import Utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils import Utils
+from bot_2.strategy import Bot2Strategy
 
 
-class BotDriver:
+class Bot2Driver:
     """
-    Main driver class for the trading bot.
+    Main driver class for Bot 2
     Responsible for:
-    - Reading configuration
-    - Determining which strategy to execute
-    - Initializing and running the selected strategy across multiple accounts in parallel
+    - Reading configuration from bot_2/config.json
+    - Initializing and running the strategy across multiple accounts in parallel
     """
     
-    def __init__(self, config_path: str = "bot/config.json"):
+    def __init__(self, config_path: str = "bot/bot_2/config.json"):
         """
         Initialize the bot driver
         
         Args:
             config_path: Path to the configuration file
         """
-        self.config_reader = ConfigReader(config_path)
-        self.config = self.config_reader.get_all_config()
+        self.config_path = config_path
+        self.config = self._load_config()
         
-    def initialize_groww_api(self, name: str, token: str) -> Optional[GrowwAPI]:
+    def _load_config(self) -> Dict[str, Any]:
+        """
+        Load configuration from JSON file
+        
+        Returns:
+            Configuration dictionary
+        """
+        try:
+            with open(self.config_path, 'r') as f:
+                config = json.load(f)
+            print(f"✓ Configuration loaded from {self.config_path}")
+            return config
+        except FileNotFoundError:
+            print(f"✗ Configuration file not found: {self.config_path}")
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"✗ Invalid JSON in configuration file: {e}")
+            sys.exit(1)
+    
+    def initialize_groww_api(self, name: str, token: str) -> GrowwAPI:
+        """
+        Initialize Groww API for an account
+        
+        Args:
+            name: Account name
+            token: API token
+            
+        Returns:
+            GrowwAPI instance or None if failed
+        """
         try:
             groww = GrowwAPI(token)
             print(f"✓ Groww API initialized for {name}'s account")
             return groww
         except Exception as e:
-            print(f"✗ Failed to initialize Groww API: {e}")
+            print(f"✗ Failed to initialize Groww API for {name}: {e}")
             return None
     
-    def get_strategy_class(self, strategy_name: str):
-        """
-        Factory method to get the strategy class based on strategy name
-        
-        Args:
-            strategy_name: Name of the strategy (e.g., 'sell_1', 'sell_2')
-            
-        Returns:
-            Strategy class or None if not found
-        """
-        if strategy_name == "sell_1":
-            return Sell1Strategy
-        elif strategy_name == "sell_2":
-            return Sell2Strategy
-        elif strategy_name == "sell_3":
-            return Sell3Strategy
-        elif strategy_name == "sell_4":
-            return Sell4Strategy
-        elif strategy_name == "sell_5":
-            return Sell5Strategy
-        elif strategy_name == "buy_1":
-            return Buy1Strategy
-        else:
-            print(f"✗ Unknown strategy: '{strategy_name}'")
-            return None
-    
-    def execute_strategy_for_account(self, account: Dict[str, Any], strategy_name: str, 
-                                     strategy_config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute_strategy_for_account(self, account: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute strategy for a single account
         
         Args:
             account: Account configuration dictionary
-            strategy_name: Name of the strategy to execute
-            strategy_config: Strategy-specific configuration
             
         Returns:
             Dictionary with execution results for this account
@@ -89,7 +85,7 @@ class BotDriver:
         account_name = account.get('name', 'Unknown')
         
         try:
-            print(f"\n[{account_name}] Starting strategy execution...")
+            print(f"\n[{account_name}] Starting Bot 2 strategy execution...")
             
             # Initialize Groww API for this account
             groww = self.initialize_groww_api(account_name, account.get('token'))
@@ -104,25 +100,14 @@ class BotDriver:
             # Create utils instance
             utils = Utils(groww)
             
-            # Get the strategy class
-            strategy_class = self.get_strategy_class(strategy_name)
-            
-            if strategy_class is None:
-                return {
-                    "account": account_name,
-                    "status": "error",
-                    "error": f"Strategy '{strategy_name}' not found"
-                }
-            
             # Instantiate the strategy
-            strategy_instance = strategy_class(
+            strategy_instance = Bot2Strategy(
                 groww=groww,
                 utils=utils,
-                config=self.config,
-                strategy_config=strategy_config
+                config=self.config
             )
             
-            print(f"[{account_name}] ✓ Strategy '{strategy_name}' loaded")
+            print(f"[{account_name}] ✓ Bot 2 Strategy loaded")
             
             # Execute the strategy
             result = strategy_instance.execute()
@@ -141,7 +126,7 @@ class BotDriver:
                 "error": str(e)
             }
     
-    def run(self, max_workers: Optional[int] = None):
+    def run(self, max_workers: int = None):
         """
         Execute strategy across multiple accounts in parallel
         
@@ -152,11 +137,6 @@ class BotDriver:
             List of results from all accounts
         """
         try:
-            # Get active strategy name and config
-            active_strategy, strategy_config = self.config_reader.get_active_strategy_config()
-            print(f"Active Strategy: {active_strategy}")
-            print(f"Strategy Config: {strategy_config}")
-            
             # Get accounts from config
             accounts = self.config.get('accounts', [])
             
@@ -184,12 +164,8 @@ class BotDriver:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all tasks
                 future_to_account = {
-                    executor.submit(
-                        self.execute_strategy_for_account,
-                        account,
-                        active_strategy,
-                        strategy_config
-                    ): account for account in enabled_accounts
+                    executor.submit(self.execute_strategy_for_account, account): account 
+                    for account in enabled_accounts
                 }
                 
                 # Collect results as they complete
@@ -224,9 +200,6 @@ class BotDriver:
             
             return results
             
-        except KeyError as e:
-            print(f"✗ Configuration error: {e}")
-            return []
         except Exception as e:
             print(f"✗ Error during bot execution: {e}")
             import traceback
@@ -236,14 +209,14 @@ class BotDriver:
 
 def main():
     """
-    Entry point for the bot
+    Entry point for Bot 2
     """
     print("=" * 50)
-    print("Trading Bot - Starting (Parallel Mode)")
+    print("Bot 2 - G1/G2/R1 Level Strategy (Parallel Mode)")
     print("=" * 50)
     
     # Create the bot driver
-    driver = BotDriver()
+    driver = Bot2Driver()
     
     # Run strategy across all accounts in parallel
     results = driver.run()
@@ -252,13 +225,13 @@ def main():
     success = all(result.get('status') == 'success' for result in results)
     
     if success and results:
-        print("\n✓ Bot execution completed successfully for all accounts")
+        print("\n✓ Bot 2 execution completed successfully for all accounts")
         sys.exit(0)
     elif results:
-        print("\n⚠ Bot execution completed with some errors")
+        print("\n⚠ Bot 2 execution completed with some errors")
         sys.exit(1)
     else:
-        print("\n✗ Bot execution failed")
+        print("\n✗ Bot 2 execution failed")
         sys.exit(1)
 
 
