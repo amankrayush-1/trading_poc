@@ -1,0 +1,41 @@
+{
+  "sell_1": {
+    "r1": "23000"
+  },
+  "sell_2": {
+    "r1": "23000",
+    "r2": "24000"
+  },
+  "sell_4": {
+  },
+  "sell_5": {
+  },
+  "buy_1": {
+  },
+  "strategy": "sell_1",
+  "expiry": "28NOV",
+  "spread_gap": "200",
+  "trading_symbol": "nifty",
+  "exchange": "nse",
+  "number_of_lots": "2",
+  "lot_size": "65",
+  "itm_points": "50",
+  "atr": 40,
+  "accounts": [
+    {
+      "name": "Bapi",
+      "token": "api_token",
+      "enabled": true
+    },
+    {
+      "name": "Aman",
+      "token": "api_token",
+      "enabled": true
+    },
+    {
+      "name": "Somu Dada",
+      "token": "api_token",
+      "enabled": true
+    }
+  ]
+}

@@ -38,6 +38,186 @@ class Utils:
             print(f"Error fetching 15-min candle data: {e}")
         return None
 
+    def get_nifty_first_15min_candle(self) -> dict:
+        """
+        Get the first 15-minute candle (9:15 AM to 9:30 AM) for NIFTY.
+        
+        This method fetches historical candle data specifically for the first 15 minutes
+        of the trading session using the get_historical_candle_data API.
+
+        Returns:
+            dict: Dictionary with 'open', 'high', 'low', 'close', 'volume' keys
+                  or None if error occurs
+        """
+        try:
+            from datetime import datetime, time
+            
+            # Get current date
+            current_date = datetime.now()
+            
+            # Check if current time is after 9:30 AM
+            current_time = datetime.now().time()
+            first_candle_end = time(9, 30)
+            
+            # If before 9:30 AM, we can't get the first candle yet
+            if current_time < first_candle_end:
+                print(f"Market first 15-min candle not yet complete. Current time: {current_time}")
+                return None
+            
+            # Format times for the first 15 minutes of trading (9:15 AM to 9:30 AM IST)
+            start_time = f"{current_date.strftime('%Y-%m-%d')} 09:15:00"
+            end_time = f"{current_date.strftime('%Y-%m-%d')} 09:30:00"
+            
+            # Fetch historical candle data for the specific time range
+            historical_response = self.groww.get_historical_candle_data(
+                trading_symbol="NIFTY",
+                exchange=self.groww.EXCHANGE_NSE,
+                segment=self.groww.SEGMENT_CASH,
+                start_time=start_time,
+                end_time=end_time,
+                interval_in_minutes=15  # 15-minute interval
+            )
+            
+            if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
+                # Get the first candle (9:15-9:30 AM)
+                candle = historical_response['candles'][0]
+                # Candle format: [timestamp, open, high, low, close, volume]
+                return {
+                    'open': candle[1],
+                    'high': candle[2],
+                    'low': candle[3],
+                    'close': candle[4]
+                }
+            else:
+                print(f"No candle data found for NIFTY on {current_date.strftime('%Y-%m-%d')}")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching first 15-min candle data: {e}")
+            return None
+
+    def get_previous_trading_day(self, reference_date=None):
+        """
+        Get the previous trading day (excluding weekends and holidays)
+        
+        Args:
+            reference_date: datetime object or None (uses today if None)
+            
+        Returns:
+            datetime: Previous trading day
+        """
+        from datetime import datetime, timedelta
+        import csv
+        
+        # Use today if no reference date provided
+        if reference_date is None:
+            reference_date = datetime.now()
+        
+        # Convert to date if datetime
+        if isinstance(reference_date, datetime):
+            current_date = reference_date.date()
+        else:
+            current_date = reference_date
+        
+        # Load market holidays from CSV
+        holidays = set()
+        try:
+            with open('bhavcopy/holiday.csv', 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Parse date in DD-MMM-YYYY format (e.g., 26-Feb-2025)
+                    date_str = row['Date']
+                    holiday_date = datetime.strptime(date_str, '%d-%b-%Y').date()
+                    holidays.add(holiday_date)
+        except Exception as e:
+            print(f"Warning: Could not load holidays: {e}")
+        
+        # Start from previous day
+        previous_day = current_date - timedelta(days=1)
+        
+        # Keep going back until we find a trading day
+        while True:
+            # Check if it's a weekend (Saturday=5, Sunday=6)
+            if previous_day.weekday() >= 5:
+                previous_day -= timedelta(days=1)
+                continue
+            
+            # Check if it's a holiday
+            if previous_day in holidays:
+                previous_day -= timedelta(days=1)
+                continue
+            
+            # Found a trading day
+            return datetime.combine(previous_day, datetime.min.time())
+
+    def get_ohlc_previous_trading_day(self):
+        """
+        Get OHLC data for the previous trading day for NIFTY
+        
+        This method:
+        1. Finds the last trading day (excluding weekends and holidays)
+        2. Fetches OHLC data for that day using historical candle data
+        
+        Returns:
+            dict: Dictionary with 'date', 'open', 'high', 'low', 'close', 'volume' keys
+                  or None if error occurs
+        """
+        try:
+            from datetime import datetime
+            
+            # Get previous trading day
+            prev_trading_day = self.get_previous_trading_day()
+            
+            print(f"Fetching OHLC for previous trading day: {prev_trading_day.strftime('%Y-%m-%d %A')}")
+            
+            # Format times for the entire trading session (9:15 AM to 3:30 PM IST)
+            start_time = f"{prev_trading_day.strftime('%Y-%m-%d')} 09:15:00"
+            end_time = f"{prev_trading_day.strftime('%Y-%m-%d')} 15:30:00"
+            
+            # Fetch historical candle data for the entire day (1440 minutes = 1 day)
+            historical_response = self.groww.get_historical_candle_data(
+                trading_symbol="NIFTY",
+                exchange=self.groww.EXCHANGE_NSE,
+                segment=self.groww.SEGMENT_CASH,
+                start_time=start_time,
+                end_time=end_time,
+                interval_in_minutes=1440  # Daily candle
+            )
+            
+            if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
+                # Get the daily candle
+                candle = historical_response['candles'][0]
+                # Candle format: [timestamp, open, high, low, close, volume]
+                
+                result = {
+                    'date': prev_trading_day.strftime('%Y-%m-%d'),
+                    'day': prev_trading_day.strftime('%A'),
+                    'timestamp': candle[0],
+                    'open': candle[1],
+                    'high': candle[2],
+                    'low': candle[3],
+                    'close': candle[4],
+                    'volume': candle[5]
+                }
+                
+                print(f"✓ OHLC Data for {result['date']} ({result['day']}):")
+                print(f"  Open:   {result['open']}")
+                print(f"  High:   {result['high']}")
+                print(f"  Low:    {result['low']}")
+                print(f"  Close:  {result['close']}")
+                print(f"  Volume: {result['volume']}")
+                
+                return result
+            else:
+                print(f"No candle data found for NIFTY on {prev_trading_day.strftime('%Y-%m-%d')}")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching previous trading day OHLC: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def get_atm_strike(self, spot_price):
         return round(float(spot_price) / 50) * 50
 
