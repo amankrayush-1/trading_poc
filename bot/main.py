@@ -28,7 +28,7 @@ class BotDriver:
     - Initializing and running the selected strategy across multiple accounts in parallel
     """
     
-    def __init__(self, config_path: str = "bot/config.json"):
+    def __init__(self, config_path: str = "config.json"):
         """
         Initialize the bot driver
         

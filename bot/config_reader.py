@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 class ConfigReader:
    
-    def __init__(self, config_path: str = "bot/config.json"):
+    def __init__(self, config_path: str = "config.json"):
         self.config_path = config_path
         self.config = self.read_config()
     

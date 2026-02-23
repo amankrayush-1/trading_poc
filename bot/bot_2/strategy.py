@@ -24,9 +24,12 @@ class Bot2Strategy:
     Strategy Steps:
     Step 1: Wait till 9:30 AM
     Step 2: Get OHLC of first 15 minute candle (9:15-9:30 AM)
-    Step 3: If candle is green AND open < G1 AND open < G2 AND close < R1
+    Step 3: Check if (abs(open - close) / open) > 0.001 (bald candle check)
+            If condition is FALSE (not bald candle), stop execution
+            If condition is TRUE (bald candle), proceed to next steps
+    Step 4: If candle is green AND open < G1 AND open < G2 AND close < R1
             → Place call spread at (15min_close + R1) / 2 level, wait till 2 PM
-    Step 4: If candle is RED AND close < G1 AND close < G2
+    Step 5: If candle is RED AND close < G1 AND close < G2
             → Place call spread at G1 level, wait till 2 PM
     """
     
@@ -146,9 +149,12 @@ class Bot2Strategy:
         Strategy Steps:
         Step 1: Wait till 9:30 AM
         Step 2: Get OHLC of first 15 minute candle (9:15-9:30 AM)
-        Step 3: If candle is green AND open < G1 AND open < G2 AND close < R1
+        Step 3: Check if (abs(open - close) / open) > 0.001 (bald candle check)
+                If condition is TRUE (bald candle), proceed to next steps
+                If condition is FALSE (not bald candle), stop execution
+        Step 4: If candle is green AND open < G1 AND open < G2 AND close < R1
                 → Place call spread at (15min_close + R1) / 2 level, wait till 2 PM
-        Step 4: If candle is RED AND close < G1 AND close < G2
+        Step 5: If candle is RED AND close < G1 AND close < G2
                 → Place call spread at G1 level, wait till 2 PM
         
         Returns:
@@ -195,21 +201,44 @@ class Bot2Strategy:
             
             print(f"First 15-min Candle: O={o}, H={h}, L={l}, C={c}")
             
-            # ========== STEP 3: Check green candle conditions ==========
+            # ========== STEP 3: Check if candle is bald ==========
+            # Check: (abs(open - close) / open) > 0.001
+            # If TRUE: candle is bald, proceed to next steps
+            # If FALSE: candle is NOT bald, stop execution
+            candle_body_percentage = abs(o - c) / o
+            is_bald_candle = candle_body_percentage > 0.001
+            
+            print(f"\nStep 3 - Bald Candle Check:")
+            print(f"  - Candle body percentage: {candle_body_percentage:.4f} ({candle_body_percentage * 100:.2f}%)")
+            print(f"  - (abs(open - close) / open) > 0.001: {is_bald_candle}")
+            
+            if not is_bald_candle:
+                print("\n✗ Candle is NOT bald (body <= 0.1%). Stopping execution.")
+                return {
+                    "status": "success",
+                    "action": "no_trade",
+                    "reason": "not_bald_candle",
+                    "candle_data": first_15min,
+                    "candle_body_percentage": candle_body_percentage
+                }
+            
+            print("✓ Candle is bald (body > 0.1%). Proceeding with strategy...")
+            
+            # ========== STEP 4: Check green candle conditions ==========
             # Conditions: green AND open < G1 AND open < G2 AND close < R1
             is_green = c > o
-            condition_3a = o < self.g1
-            condition_3b = o < self.g2
-            condition_3c = c < self.r1
+            condition_4a = o < self.g1
+            condition_4b = o < self.g2
+            condition_4c = c < self.r1
             
-            print(f"\nStep 3 - Green Candle Analysis:")
+            print(f"\nStep 4 - Green Candle Analysis:")
             print(f"  - Is Green (close > open): {is_green} ({c} > {o})")
-            print(f"  - open < G1: {condition_3a} ({o} < {self.g1})")
-            print(f"  - open < G2: {condition_3b} ({o} < {self.g2})")
-            print(f"  - close < R1: {condition_3c} ({c} < {self.r1})")
+            print(f"  - open < G1: {condition_4a} ({o} < {self.g1})")
+            print(f"  - open < G2: {condition_4b} ({o} < {self.g2})")
+            print(f"  - close < R1: {condition_4c} ({c} < {self.r1})")
             
-            if is_green and condition_3a and condition_3b and condition_3c:
-                print("\n✓ Step 3 conditions met! Placing at (15min_close + R1) / 2...")
+            if is_green and condition_4a and condition_4b and condition_4c:
+                print("\n✓ Step 4 conditions met! Placing at (15min_close + R1) / 2...")
                 
                 # Calculate target level: (15min_close + R1) / 2
                 target_level = (c + self.r1) / 2
@@ -248,19 +277,19 @@ class Bot2Strategy:
                     "order_result": order_result
                 }
             
-            # ========== STEP 4: Check red candle conditions ==========
+            # ========== STEP 5: Check red candle conditions ==========
             # Conditions: RED AND close < G1 AND close < G2
             is_red = o > c
-            condition_4a = c < self.g1
-            condition_4b = c < self.g2
+            condition_5a = c < self.g1
+            condition_5b = c < self.g2
             
-            print(f"\nStep 4 - Red Candle Analysis:")
+            print(f"\nStep 5 - Red Candle Analysis:")
             print(f"  - Is Red (open > close): {is_red} ({o} > {c})")
-            print(f"  - close < G1: {condition_4a} ({c} < {self.g1})")
-            print(f"  - close < G2: {condition_4b} ({c} < {self.g2})")
+            print(f"  - close < G1: {condition_5a} ({c} < {self.g1})")
+            print(f"  - close < G2: {condition_5b} ({c} < {self.g2})")
             
-            if is_red and condition_4a and condition_4b:
-                print("\n✓ Step 4 conditions met! Placing at G1 level...")
+            if is_red and condition_5a and condition_5b:
+                print("\n✓ Step 5 conditions met! Placing at G1 level...")
                 
                 # Target level is G1
                 target_level = self.g1
