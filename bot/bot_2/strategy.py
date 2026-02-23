@@ -8,9 +8,12 @@ from growwapi import GrowwAPI
 import sys
 import os
 
+from bot.utils import Utils
+
+
 # Add parent directory to path to import Utils
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import Utils
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# from utils import Utils
 
 
 class Bot2Strategy:

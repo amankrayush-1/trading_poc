@@ -10,10 +10,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from growwapi import GrowwAPI
 import os
 
+from bot.bot_2.strategy import Bot2Strategy
+from bot.utils import Utils
+
+
 # Add parent directory to path to import Utils
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import Utils
-from bot_2.strategy import Bot2Strategy
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# from utils import Utils
+# from bot_2.strategy import Bot2Strategy
 
 
 class Bot2Driver:
