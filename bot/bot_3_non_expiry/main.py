@@ -79,11 +79,19 @@ class BotDriver:
             # Create utils instance
             utils = Utils(groww)
             
-            # Instantiate the strategy
+            # Create account-specific config by merging global config with account-specific overrides
+            account_config = self.config.copy()
+            
+            # Override number_of_lots if specified at account level
+            if 'number_of_lots' in account:
+                account_config['number_of_lots'] = account['number_of_lots']
+                print(f"[{account_name}] Using account-specific number_of_lots: {account['number_of_lots']}")
+            
+            # Instantiate the strategy with account-specific config
             strategy_instance = Bot3Strategy(
                 groww=groww,
                 utils=utils,
-                config=self.config
+                config=account_config
             )
             
             print(f"[{account_name}] ✓ Bot 3 Strategy loaded")

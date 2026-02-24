@@ -13,17 +13,20 @@
     {
       "name": "Bapi",
       "token": "api_token",
-      "enabled": true
+      "enabled": true,
+      "number_of_lots": "2"
     },
     {
       "name": "Aman",
       "token": "api_token",
-      "enabled": true
+      "enabled": true,
+      "number_of_lots": "2"
     },
     {
       "name": "Somu Dada",
       "token": "api_token",
-      "enabled": true
+      "enabled": true,
+      "number_of_lots": "2"
     }
   ]
 }

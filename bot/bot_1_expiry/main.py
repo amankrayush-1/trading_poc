@@ -83,7 +83,7 @@ class BotDriver:
             print(f"✗ Unknown strategy: '{strategy_name}'")
             return None
     
-    def execute_strategy_for_account(self, account: Dict[str, Any], strategy_name: str, 
+    def execute_strategy_for_account(self, account: Dict[str, Any], strategy_name: str,
                                      strategy_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute strategy for a single account
@@ -124,11 +124,19 @@ class BotDriver:
                     "error": f"Strategy '{strategy_name}' not found"
                 }
             
-            # Instantiate the strategy
+            # Create account-specific config by merging global config with account-specific overrides
+            account_config = self.config.copy()
+            
+            # Override number_of_lots if specified at account level
+            if 'number_of_lots' in account:
+                account_config['number_of_lots'] = account['number_of_lots']
+                print(f"[{account_name}] Using account-specific number_of_lots: {account['number_of_lots']}")
+            
+            # Instantiate the strategy with account-specific config
             strategy_instance = strategy_class(
                 groww=groww,
                 utils=utils,
-                config=self.config,
+                config=account_config,
                 strategy_config=strategy_config
             )
             
