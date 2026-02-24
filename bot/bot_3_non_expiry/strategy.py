@@ -39,6 +39,7 @@ class Bot3Strategy:
         self.lot_size = int(config.get('lot_size', 65))
         self.itm_points = int(config.get('itm_points', 50))
         self.otm_points = int(config.get('otm_points', 50))
+        self.r1 = float(config.get('r1', 23000))
         
         print(f"Bot3Strategy initialized with:")
         print(f"  - Expiry to Trade: {self.expiry_to_trade}")
@@ -50,6 +51,7 @@ class Bot3Strategy:
         print(f"  - Lot Size: {self.lot_size}")
         print(f"  - ITM Points: {self.itm_points}")
         print(f"  - OTM Points: {self.otm_points}")
+        print(f"  - R1 Level: {self.r1}")
     
     def is_bald_candle(self, candle: Dict[str, float]) -> bool:
         """
@@ -291,7 +293,9 @@ class Bot3Strategy:
         Strategy Logic:
         Step 1: Wait until 9:30 AM and capture OHLC data of first 15-minute candle (9:15-9:30 AM)
         Step 2: Check if it's a bald candle: abs(close - open) / open > 0.001
-        Step 3: If bald candle, calculate reference level X = (15-min close + high) / 2
+        Step 3: If bald candle, calculate reference level X, take R1 value from config
+                    If (close > R1) X = (15-min close + high) / 2
+                    If (close <= R1) X = ( 15 min close + R1) / 2 
         Step 4: Monitor subsequent 15-minute candles for strong red candle that:
                 - Is bearish (open > close)
                 - Real body > total wick: (open - close) > (high - open + close - low)
@@ -394,7 +398,9 @@ class Bot3Strategy:
         """
         Execute strategy when first candle is a bald candle
         
-        Step 3: Calculate reference level X = (15-minute close + high) / 2
+        Step 3: Calculate reference level X based on R1 value from config:
+                - If (close > R1) X = (15-min close + high) / 2
+                - If (close <= R1) X = (15-min close + R1) / 2
         Step 4: After 9:30 AM, monitor subsequent 15-minute candles and wait for strong red candle where:
                 - Candle is bearish (open > close)
                 - Real body > total wick: (open - close) > (high - open + close - low)
@@ -410,13 +416,23 @@ class Bot3Strategy:
         """
         print("\n=== Executing Bald Candle Strategy ===")
         
-        # Step 3: Calculate reference level X = (15-minute close + high) / 2
+        # Step 3: Calculate reference level X based on R1 value from config
         c = first_15min['close']
         h = first_15min['high']
-        reference_level_x = (c + h) / 2
         
         print(f"--- Step 3: Calculate Reference Level X ---")
-        print(f"X = (15-min close + high) / 2 = ({c} + {h}) / 2 = {reference_level_x}")
+        print(f"15-min Close: {c}")
+        print(f"15-min High: {h}")
+        print(f"R1 from config: {self.r1}")
+        
+        if c > self.r1:
+            reference_level_x = (c + h) / 2
+            print(f"Close ({c}) > R1 ({self.r1})")
+            print(f"X = (15-min close + high) / 2 = ({c} + {h}) / 2 = {reference_level_x}")
+        else:
+            reference_level_x = (c + self.r1) / 2
+            print(f"Close ({c}) <= R1 ({self.r1})")
+            print(f"X = (15-min close + R1) / 2 = ({c} + {self.r1}) / 2 = {reference_level_x}")
         
         # Step 4: After 9:30 AM, monitor subsequent 15-minute candles for strong red candle
         print("\n--- Step 4: Monitoring Subsequent 15-Minute Candles for Strong Red Candle ---")

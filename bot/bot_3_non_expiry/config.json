@@ -8,6 +8,7 @@
   "lot_size": "65",
   "itm_points": "50",
   "otm_points": "50",
+  "r1": "23000",
   "accounts": [
     {
       "name": "Bapi",
