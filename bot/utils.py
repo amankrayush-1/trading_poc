@@ -363,6 +363,77 @@ class Utils:
         except Exception as e:
             print(f"Error fetching first 30-min candle data: {e}")
             return None
+    
+    def get_second_15min_candle(self, exchange: str) -> dict:
+        """
+        Get the second 15-minute candle (9:30 AM to 9:45 AM IST) for the specified exchange
+        
+        Args:
+            exchange: Exchange name ('NSE' or 'BSE')
+            
+        Returns:
+            dict with 'open', 'high', 'low', 'close', 'volume' keys or None if error/not available
+        """
+        try:
+            from datetime import datetime, time
+            
+            exchange_upper = exchange.upper()
+            
+            # Determine trading symbol based on exchange
+            if exchange_upper == 'NSE':
+                trading_symbol = 'NIFTY'
+                exchange_const = self.groww.EXCHANGE_NSE
+            elif exchange_upper == 'BSE':
+                trading_symbol = 'SENSEX'
+                exchange_const = self.groww.EXCHANGE_BSE
+            else:
+                raise ValueError(f"Unsupported exchange: {exchange}")
+            
+            # Get current date and time
+            current_datetime = datetime.now()
+            current_time = current_datetime.time()
+            
+            # Check if current time is after 9:45 AM
+            second_candle_end = time(9, 45)
+            
+            # If before 9:45 AM, the second 15-min candle is not yet complete
+            if current_time < second_candle_end:
+                print(f"Second 15-min candle not yet complete. Current time: {current_time.strftime('%H:%M:%S')}")
+                return None
+            
+            # Format times for the second 15 minutes of trading (9:30 AM to 9:45 AM IST)
+            start_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:30:00"
+            end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:45:00"
+            
+            # Fetch historical candle data for the specific time range
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{exchange_upper}-{trading_symbol}",
+                exchange=exchange_const,
+                segment=self.groww.SEGMENT_CASH,
+                start_time=start_time,
+                end_time=end_time,
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+            )
+            
+            if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
+                # Get the second candle (9:30-9:45 AM)
+                candle = historical_response['candles'][0]
+                # Candle format: [timestamp, open, high, low, close, volume]
+                return {
+                    'timestamp': candle[0],
+                    'open': candle[1],
+                    'high': candle[2],
+                    'low': candle[3],
+                    'close': candle[4],
+                    'volume': candle[5]
+                }
+            else:
+                print(f"No candle data found for {trading_symbol} on {current_datetime.strftime('%Y-%m-%d')}")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching second 15-min candle data: {e}")
+            return None
 
 
     def get_atm_strike(self, spot_price, exchange: str) -> float:
