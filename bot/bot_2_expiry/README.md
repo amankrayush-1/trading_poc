@@ -64,13 +64,13 @@ Fetches OHLC data for the first 15 minutes of trading.
 
 ### Run Bot 2:
 ```bash
-python bot/bot_2/main.py
+python bot/bot_2_expiry/main.py
 ```
 
 ### Run from project root:
 ```bash
 cd /Users/amankumarayush/PycharmProjects/trading_poc
-python bot/bot_2/main.py
+python bot/bot_2_expiry/main.py
 ```
 
 ## Features

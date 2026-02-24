@@ -5,8 +5,6 @@ Standalone trading bot with G1, G2, R1 level-based strategy
 
 from typing import Dict, Any
 from growwapi import GrowwAPI
-import sys
-import os
 
 from bot.utils import Utils
 
@@ -144,7 +142,7 @@ class Bot2Strategy:
     
     def execute(self) -> Dict[str, Any]:
         """
-        Execute the bot_2 strategy with G1, G2, R1 levels
+        Execute the bot_2_expiry strategy with G1, G2, R1 levels
         
         Strategy Steps:
         Step 1: Wait till 9:30 AM

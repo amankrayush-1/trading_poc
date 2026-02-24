@@ -150,7 +150,7 @@ To create a new strategy (e.g., "sell_3"):
    ```python
    from typing import Dict, Any
    from growwapi import GrowwAPI
-   from bot.utils import Utils
+   from bot import Utils
 
    class Sell3Strategy:
        def __init__(self, groww: GrowwAPI, utils: Utils, config: Dict[str, Any], strategy_config: Dict[str, Any]):
@@ -167,7 +167,7 @@ To create a new strategy (e.g., "sell_3"):
 
 3. **Import in [`main.py`](main.py:14)**:
    ```python
-   from bot.sell_3.strategy import Sell3Strategy
+   from bot import Sell3Strategy
    ```
 
 4. **Add to factory method** in [`main.py`](main.py:47):

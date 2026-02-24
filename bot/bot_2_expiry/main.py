@@ -4,27 +4,26 @@ Entry point for Bot 2 with G1, G2, R1 level-based strategy
 """
 
 import sys
+import os
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from growwapi import GrowwAPI
-import os
 
-from bot.bot_2.strategy import Bot2Strategy
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from bot.bot_2_expiry.strategy import Bot2Strategy
 from bot.utils import Utils
-
-
-# Add parent directory to path to import Utils
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# from utils import Utils
-# from bot_2.strategy import Bot2Strategy
 
 
 class Bot2Driver:
     """
     Main driver class for Bot 2
     Responsible for:
-    - Reading configuration from bot_2/config.json
+    - Reading configuration from bot_2_expiry/config.json
     - Initializing and running the strategy across multiple accounts in parallel
     """
     
@@ -35,6 +34,10 @@ class Bot2Driver:
         Args:
             config_path: Path to the configuration file
         """
+        # Resolve config path relative to this file's directory
+        if not os.path.isabs(config_path):
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)
+        
         self.config_path = config_path
         self.config = self._load_config()
         

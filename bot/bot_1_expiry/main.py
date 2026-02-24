@@ -5,18 +5,24 @@ It reads the configuration, determines which strategy to use, and executes it ac
 """
 
 import sys
-from typing import Optional, Dict, Any, List
+import os
+from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from growwapi import GrowwAPI
 
-from bot.config_reader import ConfigReader
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from bot.bot_1_expiry.config_reader import ConfigReader
 from bot.utils import Utils
-from bot.sell_1.strategy import Sell1Strategy
-from bot.sell_2.strategy import Sell2Strategy
-from bot.sell_3.strategy import Sell3Strategy
-from bot.sell_4.strategy import Sell4Strategy
-from bot.sell_5.strategy import Sell5Strategy
-from bot.buy_1.strategy import Buy1Strategy
+from bot.bot_1_expiry.sell_1.strategy import Sell1Strategy
+from bot.bot_1_expiry.sell_2.strategy import Sell2Strategy
+from bot.bot_1_expiry.sell_3.strategy import Sell3Strategy
+from bot.bot_1_expiry.sell_4.strategy import Sell4Strategy
+from bot.bot_1_expiry.sell_5.strategy import Sell5Strategy
+from bot.bot_1_expiry.buy_1.strategy import Buy1Strategy
 
 
 class BotDriver:
@@ -35,6 +41,10 @@ class BotDriver:
         Args:
             config_path: Path to the configuration file
         """
+        # Resolve config path relative to this file's directory
+        if not os.path.isabs(config_path):
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)
+        
         self.config_reader = ConfigReader(config_path)
         self.config = self.config_reader.get_all_config()
         
