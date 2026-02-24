@@ -43,7 +43,7 @@ class Utils:
         Get the first 15-minute candle (9:15 AM to 9:30 AM) for NIFTY.
         
         This method fetches historical candle data specifically for the first 15 minutes
-        of the trading session using the get_historical_candle_data API.
+        of the trading session using the get_historical_candles API.
 
         Returns:
             dict: Dictionary with 'open', 'high', 'low', 'close', 'volume' keys
@@ -69,13 +69,13 @@ class Utils:
             end_time = f"{current_date.strftime('%Y-%m-%d')} 09:30:00"
             
             # Fetch historical candle data for the specific time range
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol="NIFTY",
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol="NSE-NIFTY",
                 exchange=self.groww.EXCHANGE_NSE,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=15  # 15-minute interval
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15  # 15-minute interval
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -175,13 +175,13 @@ class Utils:
             end_time = f"{prev_trading_day.strftime('%Y-%m-%d')} 15:30:00"
             
             # Fetch historical candle data for the entire day (1440 minutes = 1 day)
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol="NIFTY",
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol="NSE-NIFTY",
                 exchange=self.groww.EXCHANGE_NSE,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=1440  # Daily candle
+                candle_interval=self.groww.CANDLE_INTERVAL_DAY  # Daily candle
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:

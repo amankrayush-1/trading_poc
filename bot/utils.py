@@ -5,6 +5,35 @@ class Utils:
     def __init__(self, groww: GrowwAPI):
         self.groww = groww
     
+    def _get_candle_interval_constant(self, interval_minutes: int) -> str:
+        """
+        Convert interval in minutes to Groww API candle interval constant
+        
+        Args:
+            interval_minutes: Interval in minutes (e.g., 1, 3, 5, 15, 30, 60, 1440)
+            
+        Returns:
+            str: Groww API candle interval constant
+        """
+        interval_map = {
+            1: self.groww.CANDLE_INTERVAL_MIN_1,
+            2: self.groww.CANDLE_INTERVAL_MIN_2,
+            3: self.groww.CANDLE_INTERVAL_MIN_3,
+            5: self.groww.CANDLE_INTERVAL_MIN_5,
+            10: self.groww.CANDLE_INTERVAL_MIN_10,
+            15: self.groww.CANDLE_INTERVAL_MIN_15,
+            30: self.groww.CANDLE_INTERVAL_MIN_30,
+            60: self.groww.CANDLE_INTERVAL_HOUR_1,
+            240: self.groww.CANDLE_INTERVAL_HOUR_4,
+            1440: self.groww.CANDLE_INTERVAL_DAY,
+            10080: self.groww.CANDLE_INTERVAL_WEEK,
+        }
+        
+        if interval_minutes not in interval_map:
+            raise ValueError(f"Unsupported interval: {interval_minutes} minutes. Supported: {list(interval_map.keys())}")
+        
+        return interval_map[interval_minutes]
+    
     def get_spot_price(self, exchange: str) -> float:
         exchange_upper = exchange.upper()
         
@@ -62,13 +91,13 @@ class Utils:
             start_time = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
             
             # Fetch historical candle data
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{exchange_upper}-{trading_symbol}",
                 exchange=self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=interval_minutes
+                candle_interval=self._get_candle_interval_constant(interval_minutes)
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -164,13 +193,13 @@ class Utils:
             end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:18:00"
             
             # Fetch historical candle data for the specific time range
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{exchange_upper}-{trading_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=3
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_3
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -235,13 +264,13 @@ class Utils:
             end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:30:00"
             
             # Fetch historical candle data for the specific time range
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{exchange_upper}-{trading_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=15
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -306,13 +335,13 @@ class Utils:
             end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:45:00"
             
             # Fetch historical candle data for the specific time range
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{exchange_upper}-{trading_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=30
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_30
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -398,13 +427,13 @@ class Utils:
             start_time = (now - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
             
             # Fetch historical candle data
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{exchange_upper}-{trading_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=15
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
             )
             
             if not historical_response or 'candles' not in historical_response or len(historical_response['candles']) < 33:
@@ -785,3 +814,253 @@ class Utils:
             error_msg = f"Error closing FNO trades: {e}"
             print(error_msg)
             return {"status": "error", "message": error_msg}
+    
+    def get_option_strike_symbol(self, spot_price: float, exchange: str, trading_symbol: str,
+                                  expiry: str, option_type: str, otm_points: int = 0) -> str:
+        """
+        Get the option trading symbol based on spot price and parameters
+        
+        Args:
+            spot_price: Current spot price
+            exchange: Exchange name ('NSE' or 'BSE')
+            trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX')
+            expiry: Expiry date in format like '28FEB', '05MAR'
+            option_type: 'CE' for call or 'PE' for put
+            otm_points: Points away from ATM (positive for OTM, negative for ITM)
+            
+        Returns:
+            str: Option trading symbol (e.g., 'NIFTY28FEB24000CE')
+        """
+        atm_strike = self.get_atm_strike(spot_price, exchange)
+        strike = int(atm_strike + otm_points)
+        return f"{trading_symbol.upper()}{expiry}{strike}{option_type.upper()}"
+    
+    def get_first_option_15min_candle(self, option_symbol: str, exchange: str) -> dict:
+        """
+        Get the first 15-minute option candle (9:15 AM to 9:30 AM IST)
+        
+        Args:
+            option_symbol: Option trading symbol (e.g., 'NIFTY28FEB24000CE')
+            exchange: Exchange name ('NSE' or 'BSE')
+            
+        Returns:
+            dict with 'open', 'high', 'low', 'close', 'volume' keys or None if error/not available
+        """
+        try:
+            from datetime import datetime, time
+            
+            exchange_upper = exchange.upper()
+            exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
+            
+            # Get current date and time
+            current_datetime = datetime.now()
+            current_time = current_datetime.time()
+            
+            # Check if current time is after 9:30 AM
+            first_candle_end = time(9, 30)
+            
+            # If before 9:30 AM, the first 15-min candle is not yet complete
+            if current_time < first_candle_end:
+                print(f"First 15-min option candle not yet complete. Current time: {current_time.strftime('%H:%M:%S')}")
+                return None
+            
+            # Format times for the first 15 minutes of trading (9:15 AM to 9:30 AM IST)
+            start_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:15:00"
+            end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:30:00"
+            
+            # Fetch historical candle data for the specific time range
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=option_symbol,
+                exchange=exchange_const,
+                segment=self.groww.SEGMENT_FNO,
+                start_time=start_time,
+                end_time=end_time,
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+            )
+            
+            if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
+                # Get the first candle (9:15-9:30 AM)
+                candle = historical_response['candles'][0]
+                # Candle format: [timestamp, open, high, low, close, volume]
+                return {
+                    'timestamp': candle[0],
+                    'open': candle[1],
+                    'high': candle[2],
+                    'low': candle[3],
+                    'close': candle[4],
+                    'volume': candle[5]
+                }
+            else:
+                print(f"No candle data found for option {option_symbol} on {current_datetime.strftime('%Y-%m-%d')}")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching first 15-min option candle data: {e}")
+            return None
+    
+    def get_option_15min_candle(self, option_symbol: str, exchange: str) -> dict:
+        """
+        Get the most recent 15-minute OHLC candle data for an option
+        
+        Args:
+            option_symbol: Option trading symbol (e.g., 'NIFTY28FEB24000CE')
+            exchange: Exchange name ('NSE' or 'BSE')
+            
+        Returns:
+            dict with 'open', 'high', 'low', 'close', 'volume' keys or None if error
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            exchange_upper = exchange.upper()
+            exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
+            
+            # Calculate time range for the most recent candle
+            now = datetime.now()
+            end_time = now.strftime("%Y-%m-%d %H:%M:%S")
+            start_time = (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Fetch historical candle data for option
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=option_symbol,
+                exchange=exchange_const,
+                segment=self.groww.SEGMENT_FNO,
+                start_time=start_time,
+                end_time=end_time,
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+            )
+            
+            if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
+                # Get the most recent candle (last one in the list)
+                candle = historical_response['candles'][-1]
+                # Candle format: [timestamp, open, high, low, close, volume]
+                return {
+                    'timestamp': candle[0],
+                    'open': candle[1],
+                    'high': candle[2],
+                    'low': candle[3],
+                    'close': candle[4],
+                    'volume': candle[5]
+                }
+            else:
+                print(f"No candle data found for option {option_symbol}")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching option 15-min candle data: {e}")
+            return None
+    
+    def get_option_ema_33_15min(self, option_symbol: str, exchange: str) -> dict:
+        """
+        Calculate EMA 33 for high, close, open, and low of 15-minute option candles
+        
+        Args:
+            option_symbol: Option trading symbol (e.g., 'NIFTY28FEB24000CE')
+            exchange: Exchange name ('NSE' or 'BSE')
+            
+        Returns:
+            dict with 'ema_open', 'ema_high', 'ema_low', 'ema_close', 'candles_used' keys or None if error
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            exchange_upper = exchange.upper()
+            exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
+            
+            # Calculate time range - get enough data for EMA 33 calculation
+            now = datetime.now()
+            end_time = now.strftime("%Y-%m-%d %H:%M:%S")
+            # Go back approximately 10 days to get sufficient candles
+            start_time = (now - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Fetch historical candle data
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=option_symbol,
+                exchange=exchange_const,
+                segment=self.groww.SEGMENT_FNO,
+                start_time=start_time,
+                end_time=end_time,
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+            )
+            
+            if not historical_response or 'candles' not in historical_response or len(historical_response['candles']) < 33:
+                print(f"Insufficient candle data for EMA 33 calculation. Need at least 33 candles, got {len(historical_response.get('candles', []))}")
+                return None
+            
+            candles = historical_response['candles']
+            
+            # Extract OHLC data
+            # Candle format: [timestamp, open, high, low, close, volume]
+            opens = [candle[1] for candle in candles]
+            highs = [candle[2] for candle in candles]
+            lows = [candle[3] for candle in candles]
+            closes = [candle[4] for candle in candles]
+            
+            # Calculate EMA 33 for each OHLC component
+            ema_open = self._calculate_ema(opens, period=33)
+            ema_high = self._calculate_ema(highs, period=33)
+            ema_low = self._calculate_ema(lows, period=33)
+            ema_close = self._calculate_ema(closes, period=33)
+            
+            return {
+                'ema_open': ema_open,
+                'ema_high': ema_high,
+                'ema_low': ema_low,
+                'ema_close': ema_close,
+                'candles_used': len(candles)
+            }
+            
+        except Exception as e:
+            print(f"Error calculating EMA 33 for option 15-min candles: {e}")
+            return None
+    
+    def get_option_candles_in_range(self, option_symbol: str, exchange: str,
+                                     start_time: str, end_time: str, interval_minutes: int = 15) -> list:
+        """
+        Get option candles within a specific time range
+        
+        Args:
+            option_symbol: Option trading symbol (e.g., 'NIFTY28FEB24000CE')
+            exchange: Exchange name ('NSE' or 'BSE')
+            start_time: Start time in format 'YYYY-MM-DD HH:MM:SS'
+            end_time: End time in format 'YYYY-MM-DD HH:MM:SS'
+            interval_minutes: Candle interval in minutes (default: 15)
+            
+        Returns:
+            list of candle dicts with 'timestamp', 'open', 'high', 'low', 'close', 'volume' keys
+        """
+        try:
+            exchange_upper = exchange.upper()
+            exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
+            
+            # Fetch historical candle data
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=option_symbol,
+                exchange=exchange_const,
+                segment=self.groww.SEGMENT_FNO,
+                start_time=start_time,
+                end_time=end_time,
+                candle_interval=self._get_candle_interval_constant(interval_minutes)
+            )
+            
+            if not historical_response or 'candles' not in historical_response:
+                print(f"No candle data found for option {option_symbol}")
+                return []
+            
+            # Convert candles to dict format
+            candles = []
+            for candle in historical_response['candles']:
+                candles.append({
+                    'timestamp': candle[0],
+                    'open': candle[1],
+                    'high': candle[2],
+                    'low': candle[3],
+                    'close': candle[4],
+                    'volume': candle[5]
+                })
+            
+            return candles
+            
+        except Exception as e:
+            print(f"Error fetching option candles in range: {e}")
+            return []

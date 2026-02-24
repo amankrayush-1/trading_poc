@@ -465,13 +465,13 @@ class Sell3Strategy:
             exchange_const = self.groww.EXCHANGE_NSE if self.exchange == 'NSE' else self.groww.EXCHANGE_BSE
             trading_symbol = 'NIFTY' if self.exchange == 'NSE' else 'SENSEX'
             
-            historical_response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            historical_response = self.groww.get_historical_candles(
+                groww_symbol=f"{self.exchange}-{trading_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_CASH,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=60
+                candle_interval=self.groww.CANDLE_INTERVAL_HOUR_1
             )
             
             if not historical_response or 'candles' not in historical_response or len(historical_response['candles']) == 0:

@@ -44,13 +44,13 @@ def get_15min_ohlc_data(groww, trading_symbol, date_obj):
         end_time = f"{date_obj.strftime('%Y-%m-%d')} 09:30:00"
         
         # Fetch historical candle data for 15-minute interval
-        historical_response = groww.get_historical_candle_data(
-            trading_symbol=trading_symbol,
+        historical_response = groww.get_historical_candles(
+            groww_symbol=f"NSE-{trading_symbol}",
             exchange=groww.EXCHANGE_NSE,
             segment=groww.SEGMENT_CASH,
             start_time=start_time,
             end_time=end_time,
-            interval_in_minutes=15  # 15-minute interval
+            candle_interval=groww.CANDLE_INTERVAL_MIN_15  # 15-minute interval
         )
         
         if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:

@@ -41,6 +41,25 @@ class MarketDataFetcher:
         self.exchange = exchange
         self.segment = segment
     
+    def _get_candle_interval_constant(self, interval_minutes: int) -> str:
+        """Convert interval in minutes to Groww API candle interval constant"""
+        interval_map = {
+            1: self.groww.CANDLE_INTERVAL_MIN_1,
+            2: self.groww.CANDLE_INTERVAL_MIN_2,
+            3: self.groww.CANDLE_INTERVAL_MIN_3,
+            5: self.groww.CANDLE_INTERVAL_MIN_5,
+            10: self.groww.CANDLE_INTERVAL_MIN_10,
+            15: self.groww.CANDLE_INTERVAL_MIN_15,
+            30: self.groww.CANDLE_INTERVAL_MIN_30,
+            60: self.groww.CANDLE_INTERVAL_HOUR_1,
+            240: self.groww.CANDLE_INTERVAL_HOUR_4,
+            1440: self.groww.CANDLE_INTERVAL_DAY,
+            10080: self.groww.CANDLE_INTERVAL_WEEK,
+        }
+        if interval_minutes not in interval_map:
+            raise ValueError(f"Unsupported interval: {interval_minutes} minutes")
+        return interval_map[interval_minutes]
+    
     def get_ltp(self, trading_symbol: str) -> Optional[float]:
         """
         Get Last Traded Price for a symbol.
@@ -80,13 +99,13 @@ class MarketDataFetcher:
             start_datetime = f"{date.strftime('%Y-%m-%d')} {start_time}"
             end_datetime = f"{date.strftime('%Y-%m-%d')} {end_time}"
             
-            response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            response = self.groww.get_historical_candles(
+                groww_symbol=f"{self.exchange}-{trading_symbol}",
                 exchange=self.exchange,
                 segment=self.segment,
                 start_time=start_datetime,
                 end_time=end_datetime,
-                interval_in_minutes=15
+                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
             )
             
             if response and 'candles' in response and len(response['candles']) > 0:
@@ -122,13 +141,13 @@ class MarketDataFetcher:
             List of OHLCData objects
         """
         try:
-            response = self.groww.get_historical_candle_data(
-                trading_symbol=trading_symbol,
+            response = self.groww.get_historical_candles(
+                groww_symbol=f"{self.exchange}-{trading_symbol}",
                 exchange=self.exchange,
                 segment=self.segment,
                 start_time=start_time,
                 end_time=end_time,
-                interval_in_minutes=interval_minutes
+                candle_interval=self._get_candle_interval_constant(interval_minutes)
             )
             
             candles = []

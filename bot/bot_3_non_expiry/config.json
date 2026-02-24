@@ -1,0 +1,28 @@
+{
+  "expiry_to_trade": "28FEB",
+  "expiry_to_check": "28FEB",
+  "spread_gap": "200",
+  "trading_symbol": "nifty",
+  "exchange": "nse",
+  "number_of_lots": "2",
+  "lot_size": "65",
+  "itm_points": "50",
+  "otm_points": "50",
+  "accounts": [
+    {
+      "name": "Bapi",
+      "token": "api_token",
+      "enabled": true
+    },
+    {
+      "name": "Aman",
+      "token": "api_token",
+      "enabled": true
+    },
+    {
+      "name": "Somu Dada",
+      "token": "api_token",
+      "enabled": true
+    }
+  ]
+}
