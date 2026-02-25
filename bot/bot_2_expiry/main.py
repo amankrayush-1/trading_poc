@@ -60,19 +60,21 @@ class Bot2Driver:
             print(f"✗ Invalid JSON in configuration file: {e}")
             sys.exit(1)
     
-    def initialize_groww_api(self, name: str, token: str) -> GrowwAPI:
+    def initialize_groww_api(self, name: str, user_api_key: str, user_secret: str) -> GrowwAPI:
         """
         Initialize Groww API for an account
         
         Args:
             name: Account name
-            token: API token
+            user_api_key: API key
+            user_secret: API secret
             
         Returns:
             GrowwAPI instance or None if failed
         """
         try:
-            groww = GrowwAPI(token)
+            access_token = GrowwAPI.get_access_token(api_key=user_api_key, secret=user_secret)
+            groww = GrowwAPI(access_token)
             print(f"✓ Groww API initialized for {name}'s account")
             return groww
         except Exception as e:
@@ -95,7 +97,7 @@ class Bot2Driver:
             print(f"\n[{account_name}] Starting Bot 2 strategy execution...")
             
             # Initialize Groww API for this account
-            groww = self.initialize_groww_api(account_name, account.get('token'))
+            groww = self.initialize_groww_api(account_name, account.get('token'), account.get('secret'))
             
             if groww is None:
                 return {

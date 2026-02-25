@@ -13,19 +13,22 @@
   "accounts": [
     {
       "name": "Bapi",
-      "token": "api_token",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
       "enabled": true,
       "number_of_lots": "2"
     },
     {
       "name": "Aman",
-      "token": "api_token",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
       "enabled": true,
       "number_of_lots": "2"
     },
     {
       "name": "Somu Dada",
-      "token": "api_token",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
       "enabled": true,
       "number_of_lots": "2"
     }

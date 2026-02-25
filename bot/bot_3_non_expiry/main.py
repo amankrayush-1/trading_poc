@@ -42,9 +42,10 @@ class BotDriver:
         self.config_reader = ConfigReader(config_path)
         self.config = self.config_reader.get_all_config()
         
-    def initialize_groww_api(self, name: str, token: str) -> Optional[GrowwAPI]:
+    def initialize_groww_api(self, name: str, user_api_key: str, user_secret) -> Optional[GrowwAPI]:
         try:
-            groww = GrowwAPI(token)
+            access_token = GrowwAPI.get_access_token(api_key=user_api_key, secret=user_secret)
+            groww = GrowwAPI(access_token)
             print(f"✓ Groww API initialized for {name}'s account")
             return groww
         except Exception as e:
@@ -67,7 +68,7 @@ class BotDriver:
             print(f"\n[{account_name}] Starting strategy execution...")
             
             # Initialize Groww API for this account
-            groww = self.initialize_groww_api(account_name, account.get('token'))
+            groww = self.initialize_groww_api(account_name, account.get('token'), account.get('secret'))
             
             if groww is None:
                 return {
