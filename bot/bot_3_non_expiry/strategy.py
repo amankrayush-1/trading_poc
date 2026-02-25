@@ -53,10 +53,10 @@ class Bot3Strategy:
         print(f"  - OTM Points: {self.otm_points}")
         print(f"  - ATR: {self.atr}")
     
-    def is_bald_candle(self, candle: Dict[str, float]) -> bool:
+    def is_red_bald_candle(self, candle: Dict[str, float]) -> bool:
         """
         Check if candle is red and it's a bald candle
-        Condition: close < open AND (close - open) / open > 0.001
+        Condition: close < open AND abs((open - close) / open) > 0.001
         
         Args:
             candle: Candle dict with 'open', 'high', 'low', 'close' keys
@@ -74,14 +74,33 @@ class Bot3Strategy:
         if c >= o:
             return False
         
-        # Check if it's a bald candle: (close - open) / open > 0.001
-        # Since close < open, (close - open) will be negative
-        # So we need (close - open) / open > 0.001, which means the negative value > 0.001
-        # This is impossible, so we should check if the magnitude is significant
-        # Actually, for red candle: (close - open) is negative, so condition should be:
-        # (open - close) / open > 0.001 OR we keep as is and it will never be true
-        # Based on the requirement, keeping as (close - open) / open > 0.001
-        percentage_change = (c - o) / o
+        # Check if it's a bald candle: abs((open - close) / open) > 0.001
+        percentage_change = (o - c) / o
+        return percentage_change > 0.001
+    
+    def is_green_bald_candle(self, candle: Dict[str, float]) -> bool:
+        """
+        Check if candle is green and it's a bald candle
+        Condition: close > open AND (close - open) / close > 0.001
+        
+        Args:
+            candle: Candle dict with 'open', 'high', 'low', 'close' keys
+            
+        Returns:
+            bool: True if green bald candle, False otherwise
+        """
+        o = candle['open']
+        c = candle['close']
+        
+        if o == 0:
+            return False
+        
+        # Check if candle is green (close > open)
+        if c <= o:
+            return False
+        
+        # Check if it's a bald candle: (close - open) / close > 0.001
+        percentage_change = (c - o) / c
         return percentage_change > 0.001
     
     def is_doji_candle(self, candle: Dict[str, float]) -> bool:
@@ -153,6 +172,49 @@ class Bot3Strategy:
         else:
             print(f"Already past {description} (Current: {current_time.strftime('%H:%M:%S')})")
     
+    def monitor_spot_price_for_level_touch(self, target_level: float, end_time: time) -> bool:
+        """
+        Monitor spot price to check if it touches the target level until end_time
+        
+        Args:
+            target_level: Target price level to check against
+            end_time: Time to stop monitoring (e.g., 11:00 AM)
+            
+        Returns:
+            bool: True if level touched, False otherwise
+        """
+        print(f"\n--- Monitoring Spot Price for Level Touch (until {end_time.strftime('%H:%M:%S')}) ---")
+        print(f"Target Level X: {target_level}")
+        
+        while datetime.now().time() < end_time:
+            # Check spot price every 30 seconds
+            current_spot_price = self.utils.get_spot_price(self.exchange)
+            
+            if not current_spot_price:
+                print("Unable to fetch spot price, retrying...")
+                time_module.sleep(30)
+                continue
+            
+            current_time = datetime.now().time()
+            print(f"[{current_time.strftime('%H:%M:%S')}] Current Spot Price: {current_spot_price}")
+            
+            # Check if spot price touches or goes below the target level
+            if current_spot_price <= target_level:
+                print(f"✓ Spot price touched level X! (Spot: {current_spot_price} <= Level: {target_level})")
+                return True
+            else:
+                print(f"✗ Level not touched yet (Spot: {current_spot_price} > Level: {target_level})")
+            
+            # Check if we've passed the end time
+            if datetime.now().time() >= end_time:
+                print(f"Reached end time {end_time.strftime('%H:%M:%S')} without level touch")
+                break
+            
+            # Wait 30 seconds before next check
+            time_module.sleep(2)
+        
+        return False
+    
     def monitor_option_for_ema_touch(self, option_symbol: str, ema_high: float, end_time: time) -> bool:
         """
         Monitor option 15-minute candles for EMA 33 high touch until end_time
@@ -214,17 +276,12 @@ class Bot3Strategy:
         
         Strategy Logic:
         Step 1: Wait until 9:30 AM and capture OHLC data of first 15-minute candle (9:15-9:30 AM)
-        Step 2: Check if candle is red and it's a bald candle: (close - open) / open > 0.001
-        Step 3: If bald candle, wait till 9:45 AM
-        Step 4: Get OHLC of 9:30 AM - 9:45 AM candle (second candle)
-                - If first 15-min close + 1 * ATR <= second candle high, place call spread at ITM
-                - Else if second candle high > X and second candle close < X and
-                  second candle (open - close) < (high - open + close - low), place call spread at ITM
-                  where X = (first 15-min close + first 15-min high) / 2
-                - Else, stop trade
-        Step 5: If not bald candle, check if it's a doji candle (either):
-                - Red candle: (abs(close - open) / close < 0.001) and ((close - open) < (high - close + open - low))
-                - Green candle: (abs(open - close) / open < 0.001) and ((open - close) < (high - open + close - low))
+        Step 2: Check if candle is red and it's a bald candle: (open - close) / open > 0.001
+        Step 3: If red bald candle, calculate X = close - 2*ATR + 12.5
+        Step 4: Place put spread if spot price touches level X and wait till 11 AM, if doesn't get trade till 11 AM, stop execution
+        Step 5: If not red bald candle, check if it's a green bald candle (close - open) / close > .001 or doji candle (either):
+                - Green candle: (abs(close - open) / close < 0.001) and ((close - open) < (high - close + open - low))
+                - Red candle: (abs(open - close) / open < 0.001) and ((open - close) < (high - open + close - low))
         Step 6: Get 15-min candle OHLC of expiry_to_check OTM call option (ATM + otm_points)
                 based on spot price (15-min candle closing price) - 9:15-9:30 AM candle specifically
         Step 7: Get EMA 33 OHLC of expiry_to_check OTM call option strike
@@ -263,21 +320,28 @@ class Bot3Strategy:
             
             # Step 2: Check if candle is red and it's a bald candle
             print("\n--- Step 2: Checking Red Bald Candle Condition ---")
-            is_bald = self.is_bald_candle(first_15min)
+            is_red_bald = self.is_red_bald_candle(first_15min)
             
-            percentage_change = (c - o) / o if o != 0 else 0
+            percentage_change = (o - c) / o if o != 0 else 0
             is_red = c < o
             print(f"Is Red Candle (close < open): {is_red}")
-            print(f"Bald Candle Check: (close - open) / open = {percentage_change:.6f}")
-            print(f"Is Red Bald Candle (> 0.001): {is_bald}")
+            print(f"Bald Candle Check: (open - close) / open = {percentage_change:.6f}")
+            print(f"Is Red Bald Candle (> 0.001): {is_red_bald}")
             
-            if is_bald:
-                # Step 3-4: Execute bald candle strategy
-                return self.execute_bald_candle_strategy(first_15min)
+            if is_red_bald:
+                # Step 3-4: Execute red bald candle strategy
+                return self.execute_red_bald_candle_strategy(first_15min)
             
-            # Step 5: Check if it's a doji candle
-            print("\n--- Step 5: Checking Doji Candle Condition ---")
+            # Step 5: Check if it's a green bald candle or doji candle
+            print("\n--- Step 5: Checking Green Bald Candle or Doji Candle Condition ---")
+            is_green_bald = self.is_green_bald_candle(first_15min)
             is_doji = self.is_doji_candle(first_15min)
+            
+            green_percentage_change = (c - o) / c if c != 0 else 0
+            is_green = c > o
+            print(f"Is Green Candle (close > open): {is_green}")
+            print(f"Green Bald Candle Check: (close - open) / close = {green_percentage_change:.6f}")
+            print(f"Is Green Bald Candle (> 0.001): {is_green_bald}")
             
             body_percentage = abs(c - o) / c if c != 0 else 0
             body_size = abs(c - o)
@@ -285,25 +349,25 @@ class Bot3Strategy:
             lower_wick = min(o, c) - l
             total_wick = upper_wick + lower_wick
             
-            print(f"Doji Candle Check:")
+            print(f"\nDoji Candle Check:")
             print(f"  - Body percentage: {body_percentage:.6f} (should be < 0.001)")
             print(f"  - Body size: {body_size:.2f}")
             print(f"  - Total wick: {total_wick:.2f}")
             print(f"  - Body < Wick: {body_size < total_wick}")
             print(f"Is Doji Candle: {is_doji}")
             
-            if is_doji:
-                # Execute doji candle strategy
+            if is_green_bald or is_doji:
+                # Execute green bald or doji candle strategy
                 return self.execute_doji_candle_strategy(first_15min)
             
-            # Step 11: Neither bald nor doji - stop execution
-            print("\n--- Step 11: First candle is neither bald nor doji ---")
+            # Step 11: Neither red bald, green bald, nor doji - stop execution
+            print("\n--- Step 11: First candle is neither red bald, green bald, nor doji ---")
             print("✗ No trade conditions met. Stopping strategy execution.")
             
             return {
                 "status": "success",
                 "action": "no_trade",
-                "reason": "first_candle_neither_bald_nor_doji",
+                "reason": "first_candle_no_conditions_met",
                 "candle_data": first_15min
             }
             
@@ -316,17 +380,13 @@ class Bot3Strategy:
                 "error": str(e)
             }
     
-    def execute_bald_candle_strategy(self, first_15min: Dict[str, float]) -> Dict[str, Any]:
+    def execute_red_bald_candle_strategy(self, first_15min: Dict[str, float]) -> Dict[str, Any]:
         """
-        Execute strategy when first candle is a bald candle
+        Execute strategy when first candle is a red bald candle
         
-        Step 3: Wait till 9:45 AM
-        Step 4: Get OHLC of 9:30 AM - 9:45 AM candle (second candle)
-                - If first 15-min close + 1 * ATR <= second candle high, place call spread at ITM
-                - Else if second candle high > X and second candle close < X and
-                  second candle (open - close) < (high - open + close - low), place call spread at ITM
-                  where X = (first 15-min close + first 15-min high) / 2
-                - Else, stop trade
+        Step 3: Calculate X = close - 2*ATR + 12.5
+        Step 4: Place put spread if spot price touches level X and wait till 11 AM,
+                if doesn't get trade till 11 AM, stop execution
         
         Args:
             first_15min: First 15-minute candle data
@@ -334,145 +394,69 @@ class Bot3Strategy:
         Returns:
             Dictionary with execution results
         """
-        print("\n=== Executing Bald Candle Strategy ===")
+        print("\n=== Executing Red Bald Candle Strategy ===")
         
-        # Step 3: Wait till 9:45 AM
-        print("\n--- Step 3: Waiting till 9:45 AM ---")
-        time_9_45 = time(9, 45)
-        self.wait_until_time(time_9_45, "9:45 AM")
-        
-        # Step 4: Get OHLC of 9:30 AM - 9:45 AM candle (second candle)
-        print("\n--- Step 4: Analyzing Second 15-Minute Candle (9:30-9:45 AM) ---")
-        second_15min = self.utils.get_second_15min_candle(self.exchange)
-        
-        if not second_15min:
-            return {
-                "status": "error",
-                "error": "Unable to fetch second 15-minute candle (9:30-9:45 AM)"
-            }
-        
+        # Step 3: Calculate X = close - 2*ATR + 12.5
+        print("\n--- Step 3: Calculating Target Level X ---")
         first_close = first_15min['close']
-        first_high = first_15min['high']
-        second_open = second_15min['open']
-        second_high = second_15min['high']
-        second_low = second_15min['low']
-        second_close = second_15min['close']
+        target_level_x = first_close - (2 * self.atr) + 12.5
         
         print(f"First 15-min Candle Close: {first_close}")
-        print(f"Second 15-min Candle: O={second_open}, H={second_high}, L={second_low}, C={second_close}")
         print(f"ATR from config: {self.atr}")
+        print(f"Target Level X = close - 2*ATR + 12.5")
+        print(f"Target Level X = {first_close} - 2*{self.atr} + 12.5 = {target_level_x}")
         
-        # Condition 1: Check if first 15-min close + 1 * ATR <= second candle high
-        atr_threshold = first_close + (1 * self.atr)
-        print(f"\nCondition 1: First close + ATR <= Second high")
-        print(f"  {first_close} + {self.atr} = {atr_threshold} <= {second_high}")
-        print(f"  Result: {atr_threshold <= second_high}")
+        # Step 4: Monitor spot price for level touch until 11 AM
+        print("\n--- Step 4: Monitoring Spot Price for Level Touch (till 11 AM) ---")
+        time_11_00 = time(11, 0)
         
-        if atr_threshold <= second_high:
-            print("✓ Condition 1 met: Placing call spread at ITM")
-            
-            # Get current spot price and calculate ITM strike
-            spot_price = self.utils.get_spot_price(self.exchange)
-            atm_strike = self.utils.get_atm_strike(spot_price, self.exchange)
-            itm_strike = atm_strike + self.itm_points
-            total_quantity = self.number_of_lots * self.lot_size
-            
-            print(f"Spot Price: {spot_price}")
-            print(f"ATM Strike: {atm_strike}")
-            print(f"ITM Strike: {itm_strike}")
-            print(f"Quantity: {total_quantity}")
-            
-            # Place call spread
-            order_response = self.utils.place_call_spread(
-                strike_price=itm_strike,
-                quantity=total_quantity,
-                exchange=self.exchange,
-                trading_symbol=self.trading_symbol,
-                expiry=self.expiry_to_trade,
-                spread_gap=self.spread_gap
-            )
-            
+        level_touched = self.monitor_spot_price_for_level_touch(target_level_x, time_11_00)
+        
+        if not level_touched:
+            print("\n✗ Spot price did not touch level X before 11:00 AM. No trade placed.")
             return {
                 "status": "success",
-                "action": "call_spread_placed",
-                "trigger": "bald_candle_atr_condition",
-                "strike": itm_strike,
-                "quantity": total_quantity,
-                "spot_price": spot_price,
-                "atr_threshold": atr_threshold,
-                "first_candle": first_15min,
-                "second_candle": second_15min,
-                "order_response": order_response
+                "action": "no_trade",
+                "reason": "level_not_touched_before_11am",
+                "target_level_x": target_level_x,
+                "first_candle": first_15min
             }
         
-        # Condition 2: Check alternative condition with reference level X
-        reference_level_x = (first_close + first_high) / 2
-        print(f"\nCondition 2: Alternative condition check")
-        print(f"  Reference Level X = (first close + first high) / 2 = ({first_close} + {first_high}) / 2 = {reference_level_x}")
+        # Level touched - place put spread at ITM
+        print("\n✓ Level touched! Placing Put Spread at ITM")
         
-        # Check: second candle high > X
-        condition_2a = second_high > reference_level_x
-        print(f"  2a. Second high ({second_high}) > X ({reference_level_x}): {condition_2a}")
+        # Get current spot price and calculate ITM strike for put spread
+        current_spot_price = self.utils.get_spot_price(self.exchange)
+        current_atm_strike = self.utils.get_atm_strike(current_spot_price, self.exchange)
+        current_itm_strike = current_atm_strike - self.itm_points  # ITM for put is ATM - points
+        total_quantity = self.number_of_lots * self.lot_size
         
-        # Check: second candle close < X
-        condition_2b = second_close < reference_level_x
-        print(f"  2b. Second close ({second_close}) < X ({reference_level_x}): {condition_2b}")
+        print(f"Current Spot Price: {current_spot_price}")
+        print(f"Current ATM Strike: {current_atm_strike}")
+        print(f"Current ITM Strike (Put): {current_itm_strike}")
+        print(f"Quantity: {total_quantity}")
+        print(f"Expiry to Trade: {self.expiry_to_trade}")
         
-        # Check: second candle (open - close) < (high - open + close - low)
-        body_size = abs(second_open - second_close)
-        upper_wick = second_high - max(second_open, second_close)
-        lower_wick = min(second_open, second_close) - second_low
-        total_wick = upper_wick + lower_wick
-        condition_2c = body_size < total_wick
-        print(f"  2c. Body size ({body_size:.2f}) < Total wick ({total_wick:.2f}): {condition_2c}")
+        # Place put spread at ITM
+        order_response = self.utils.place_put_spread(
+            strike_price=current_itm_strike,
+            quantity=total_quantity,
+            exchange=self.exchange,
+            trading_symbol=self.trading_symbol,
+            expiry=self.expiry_to_trade,
+            spread_gap=self.spread_gap
+        )
         
-        if condition_2a and condition_2b and condition_2c:
-            print("✓ Condition 2 met: Placing call spread at ITM")
-            
-            # Get current spot price and calculate ITM strike
-            spot_price = self.utils.get_spot_price(self.exchange)
-            atm_strike = self.utils.get_atm_strike(spot_price, self.exchange)
-            itm_strike = atm_strike + self.itm_points
-            total_quantity = self.number_of_lots * self.lot_size
-            
-            print(f"Spot Price: {spot_price}")
-            print(f"ATM Strike: {atm_strike}")
-            print(f"ITM Strike: {itm_strike}")
-            print(f"Quantity: {total_quantity}")
-            
-            # Place call spread
-            order_response = self.utils.place_call_spread(
-                strike_price=itm_strike,
-                quantity=total_quantity,
-                exchange=self.exchange,
-                trading_symbol=self.trading_symbol,
-                expiry=self.expiry_to_trade,
-                spread_gap=self.spread_gap
-            )
-            
-            return {
-                "status": "success",
-                "action": "call_spread_placed",
-                "trigger": "bald_candle_reference_level_condition",
-                "strike": itm_strike,
-                "quantity": total_quantity,
-                "spot_price": spot_price,
-                "reference_level_x": reference_level_x,
-                "first_candle": first_15min,
-                "second_candle": second_15min,
-                "order_response": order_response
-            }
-        
-        # Neither condition met - stop trade
-        print("\n✗ Neither condition met. Stopping trade execution.")
         return {
             "status": "success",
-            "action": "no_trade",
-            "reason": "bald_candle_conditions_not_met",
-            "atr_threshold": atr_threshold,
-            "reference_level_x": reference_level_x,
+            "action": "put_spread_placed",
+            "trigger": "red_bald_candle_level_touch",
+            "strike": current_itm_strike,
+            "quantity": total_quantity,
+            "spot_price": current_spot_price,
+            "target_level_x": target_level_x,
             "first_candle": first_15min,
-            "second_candle": second_15min
+            "order_response": order_response
         }
     
     def execute_doji_candle_strategy(self, first_15min: Dict[str, float]) -> Dict[str, Any]:
