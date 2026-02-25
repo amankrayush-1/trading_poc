@@ -44,7 +44,8 @@ class Utils:
                 segment=self.groww.SEGMENT_CASH,
                 exchange_trading_symbols=exchange_trading_symbol
             )
-            return ltp_response[exchange_trading_symbol]['ltp']
+            # Response format: {'NSE_NIFTY': 25581.75}
+            return ltp_response[exchange_trading_symbol]
         
         elif exchange_upper == 'BSE':
             # Get SENSEX LTP
@@ -53,7 +54,8 @@ class Utils:
                 segment=self.groww.SEGMENT_CASH,
                 exchange_trading_symbols=exchange_trading_symbol
             )
-            return ltp_response[exchange_trading_symbol]['ltp']
+            # Response format: {'BSE_SENSEX': 85000.00}
+            return ltp_response[exchange_trading_symbol]
         
         else:
             raise ValueError(f"Unsupported exchange: {exchange}. Supported exchanges: NSE, BSE")
@@ -575,26 +577,32 @@ class Utils:
         Place a call spread order (buy higher strike, sell lower strike)
         
         Args:
-            strike_price: ATM or base strike price
+            strike_price: ATM or base strike price (used directly, not calculated)
             quantity: Number of lots to trade
             exchange: Exchange name ('NSE' or 'BSE')
             trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX', 'BANKNIFTY')
-            expiry: Expiry date in format like '28NOV', '05DEC'
+            expiry: Expiry date in format like '02Mar' or '2026-03-02'
             spread_gap: Gap between strikes (e.g., 200)
             
         Returns:
             dict with buy and sell order responses
         """
         exchange_upper = exchange.upper()
-        trading_symbol_upper = trading_symbol.upper()
         
         # Determine exchange constant
         exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
         
-        # Buy higher strike (OTM)
+        # Calculate strikes directly from provided strike_price
         buy_strike = int(strike_price + spread_gap)
+        sell_strike = int(strike_price)
+        
+        # Generate option symbols
+        buy_symbol = self._format_option_symbol(trading_symbol, expiry, buy_strike, 'CE')
+        sell_symbol = self._format_option_symbol(trading_symbol, expiry, sell_strike, 'CE')
+        
+        # Buy higher strike (OTM)
         place_buy_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{buy_strike}CE",
+            trading_symbol=buy_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -603,12 +611,11 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_BUY,
         )
-        print(f"Buy Order: {trading_symbol_upper}{expiry}{buy_strike}CE - {place_buy_order_response}")
+        print(f"Buy Order: {buy_symbol} - {place_buy_order_response}")
 
         # Sell ATM strike
-        sell_strike = int(strike_price)
         place_sell_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{sell_strike}CE",
+            trading_symbol=sell_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -617,7 +624,7 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_SELL,
         )
-        print(f"Sell Order: {trading_symbol_upper}{expiry}{sell_strike}CE - {place_sell_order_response}")
+        print(f"Sell Order: {sell_symbol} - {place_sell_order_response}")
         
         return {
             'buy_order': place_buy_order_response,
@@ -630,26 +637,32 @@ class Utils:
         Close a call spread position (reverse of place_call_spread)
         
         Args:
-            strike_price: ATM or base strike price
+            strike_price: ATM or base strike price (used directly, not calculated)
             quantity: Number of lots to trade
             exchange: Exchange name ('NSE' or 'BSE')
             trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX', 'BANKNIFTY')
-            expiry: Expiry date in format like '28NOV', '05DEC'
+            expiry: Expiry date in format like '02Mar' or '2026-03-02'
             spread_gap: Gap between strikes (e.g., 200)
             
         Returns:
             dict with buy and sell order responses
         """
         exchange_upper = exchange.upper()
-        trading_symbol_upper = trading_symbol.upper()
         
         # Determine exchange constant
         exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
         
-        # Buy back ATM strike (close short position)
+        # Calculate strikes directly from provided strike_price
         buy_strike = int(strike_price)
+        sell_strike = int(strike_price + spread_gap)
+        
+        # Generate option symbols
+        buy_symbol = self._format_option_symbol(trading_symbol, expiry, buy_strike, 'CE')
+        sell_symbol = self._format_option_symbol(trading_symbol, expiry, sell_strike, 'CE')
+        
+        # Buy back ATM strike (close short position)
         place_buy_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{buy_strike}CE",
+            trading_symbol=buy_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -658,12 +671,11 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_BUY,
         )
-        print(f"Buy Order: {trading_symbol_upper}{expiry}{buy_strike}CE - {place_buy_order_response}")
+        print(f"Buy Order: {buy_symbol} - {place_buy_order_response}")
 
         # Sell higher strike (close long position)
-        sell_strike = int(strike_price + spread_gap)
         place_sell_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{sell_strike}CE",
+            trading_symbol=sell_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -672,7 +684,7 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_SELL,
         )
-        print(f"Sell Order: {trading_symbol_upper}{expiry}{sell_strike}CE - {place_sell_order_response}")
+        print(f"Sell Order: {sell_symbol} - {place_sell_order_response}")
         
         return {
             'buy_order': place_buy_order_response,
@@ -685,26 +697,32 @@ class Utils:
         Place a put spread order (buy lower strike, sell higher strike)
         
         Args:
-            strike_price: ATM or base strike price
+            strike_price: ATM or base strike price (used directly, not calculated)
             quantity: Number of lots to trade
             exchange: Exchange name ('NSE' or 'BSE')
             trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX', 'BANKNIFTY')
-            expiry: Expiry date in format like '28NOV', '05DEC'
+            expiry: Expiry date in format like '02Mar' or '2026-03-02'
             spread_gap: Gap between strikes (e.g., 200)
             
         Returns:
             dict with buy and sell order responses
         """
         exchange_upper = exchange.upper()
-        trading_symbol_upper = trading_symbol.upper()
         
         # Determine exchange constant
         exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
         
-        # Buy lower strike (OTM)
+        # Calculate strikes directly from provided strike_price
         buy_strike = int(strike_price - spread_gap)
+        sell_strike = int(strike_price)
+        
+        # Generate option symbols
+        buy_symbol = self._format_option_symbol(trading_symbol, expiry, buy_strike, 'PE')
+        sell_symbol = self._format_option_symbol(trading_symbol, expiry, sell_strike, 'PE')
+        
+        # Buy lower strike (OTM)
         place_buy_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{buy_strike}PE",
+            trading_symbol=buy_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -713,12 +731,11 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_BUY,
         )
-        print(f"Buy Order: {trading_symbol_upper}{expiry}{buy_strike}PE - {place_buy_order_response}")
+        print(f"Buy Order: {buy_symbol} - {place_buy_order_response}")
 
         # Sell ATM strike
-        sell_strike = int(strike_price)
         place_sell_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{sell_strike}PE",
+            trading_symbol=sell_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -727,7 +744,7 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_SELL,
         )
-        print(f"Sell Order: {trading_symbol_upper}{expiry}{sell_strike}PE - {place_sell_order_response}")
+        print(f"Sell Order: {sell_symbol} - {place_sell_order_response}")
         
         return {
             'buy_order': place_buy_order_response,
@@ -740,26 +757,32 @@ class Utils:
         Close a put spread position (reverse of place_put_spread)
         
         Args:
-            strike_price: ATM or base strike price
+            strike_price: ATM or base strike price (used directly, not calculated)
             quantity: Number of lots to trade
             exchange: Exchange name ('NSE' or 'BSE')
             trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX', 'BANKNIFTY')
-            expiry: Expiry date in format like '28NOV', '05DEC'
+            expiry: Expiry date in format like '02Mar' or '2026-03-02'
             spread_gap: Gap between strikes (e.g., 200)
             
         Returns:
             dict with buy and sell order responses
         """
         exchange_upper = exchange.upper()
-        trading_symbol_upper = trading_symbol.upper()
         
         # Determine exchange constant
         exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
         
-        # Buy back ATM strike (close short position)
+        # Calculate strikes directly from provided strike_price
         buy_strike = int(strike_price)
+        sell_strike = int(strike_price - spread_gap)
+        
+        # Generate option symbols
+        buy_symbol = self._format_option_symbol(trading_symbol, expiry, buy_strike, 'PE')
+        sell_symbol = self._format_option_symbol(trading_symbol, expiry, sell_strike, 'PE')
+        
+        # Buy back ATM strike (close short position)
         place_buy_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{buy_strike}PE",
+            trading_symbol=buy_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -768,12 +791,11 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_BUY,
         )
-        print(f"Buy Order: {trading_symbol_upper}{expiry}{buy_strike}PE - {place_buy_order_response}")
+        print(f"Buy Order: {buy_symbol} - {place_buy_order_response}")
 
         # Sell lower strike (close long position)
-        sell_strike = int(strike_price - spread_gap)
         place_sell_order_response = self.groww.place_order(
-            trading_symbol=f"{trading_symbol_upper}{expiry}{sell_strike}PE",
+            trading_symbol=sell_symbol,
             quantity=quantity,
             validity=self.groww.VALIDITY_DAY,
             exchange=exchange_const,
@@ -782,7 +804,7 @@ class Utils:
             order_type=self.groww.ORDER_TYPE_MARKET,
             transaction_type=self.groww.TRANSACTION_TYPE_SELL,
         )
-        print(f"Sell Order: {trading_symbol_upper}{expiry}{sell_strike}PE - {place_sell_order_response}")
+        print(f"Sell Order: {sell_symbol} - {place_sell_order_response}")
         
         return {
             'buy_order': place_buy_order_response,
@@ -799,7 +821,7 @@ class Utils:
         """
         try:
             # Get all positions
-            positions_response = self.groww.get_positions()
+            positions_response = self.groww.get_positions_for_user()
             
             if not positions_response or 'positions' not in positions_response:
                 print("No positions found or unable to fetch positions")
@@ -886,6 +908,56 @@ class Utils:
             print(error_msg)
             return {"status": "error", "message": error_msg}
     
+    def _format_option_symbol(self, trading_symbol: str, expiry: str, strike: int, option_type: str) -> str:
+        """
+        Format option trading symbol from components
+        
+        Args:
+            trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX')
+            expiry: Expiry date in format like '02Mar' or '2026-03-02'
+            strike: Strike price as integer
+            option_type: 'CE' for call or 'PE' for put
+            
+        Returns:
+            str: Option trading symbol (e.g., 'NIFTY2630225600CE')
+            
+        Note: The trading symbol format is SYMBOL + YYMDD + STRIKE + CE/PE
+              For example: NIFTY2630225600CE = NIFTY + 26 (year) + 3 (March) + 02 (2nd) + 25600 + CE
+        """
+        from datetime import datetime
+        
+        # Parse expiry format
+        # If expiry is in format '02Mar', convert to YYMDD format
+        if len(expiry) <= 5 and '-' not in expiry:
+            # Format: '02Mar' -> need to convert to YYMDD format
+            day = expiry[:2]
+            month_str = expiry[2:].upper()
+            
+            # Map month names to numbers (without leading zero)
+            month_map = {
+                'JAN': '1', 'FEB': '2', 'MAR': '3', 'APR': '4',
+                'MAY': '5', 'JUN': '6', 'JUL': '7', 'AUG': '8',
+                'SEP': '9', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+            }
+            
+            month = month_map.get(month_str, '1')
+            year = '26'  # Assuming 2026
+            
+            # Format: YYMDD (e.g., 26302 for 2nd March 2026)
+            expiry_code = f"{year}{month}{day}"
+        elif '-' in expiry:
+            # Format: '2026-03-02' -> extract YYMDD
+            date_obj = datetime.strptime(expiry, '%Y-%m-%d')
+            year = date_obj.strftime('%y')
+            month = str(int(date_obj.strftime('%m')))  # Remove leading zero
+            day = date_obj.strftime('%d')
+            expiry_code = f"{year}{month}{day}"
+        else:
+            # Assume it's already in correct format
+            expiry_code = expiry
+        
+        return f"{trading_symbol.upper()}{expiry_code}{strike}{option_type.upper()}"
+    
     def get_option_strike_symbol(self, spot_price: float, exchange: str, trading_symbol: str,
                                   expiry: str, option_type: str, otm_points: int = 0) -> str:
         """
@@ -895,16 +967,53 @@ class Utils:
             spot_price: Current spot price
             exchange: Exchange name ('NSE' or 'BSE')
             trading_symbol: Underlying symbol (e.g., 'NIFTY', 'SENSEX')
-            expiry: Expiry date in format like '28FEB', '05MAR'
+            expiry: Expiry date in format like '02Mar' or '2026-03-02'
             option_type: 'CE' for call or 'PE' for put
             otm_points: Points away from ATM (positive for OTM, negative for ITM)
             
         Returns:
-            str: Option trading symbol (e.g., 'NIFTY28FEB24000CE')
+            str: Option trading symbol (e.g., 'NIFTY2630225600CE')
+            
+        Note: The trading symbol format is SYMBOL + YYMDD + STRIKE + CE/PE
+              For example: NIFTY2630225600CE = NIFTY + 26 (year) + 3 (March) + 02 (2nd) + 25600 + CE
         """
+        from datetime import datetime
+        
         atm_strike = self.get_atm_strike(spot_price, exchange)
         strike = int(atm_strike + otm_points)
-        return f"{trading_symbol.upper()}{expiry}{strike}{option_type.upper()}"
+        
+        # Parse expiry format
+        # If expiry is in format '02Mar', convert to YYMDD format
+        if len(expiry) <= 5 and '-' not in expiry:
+            # Format: '02Mar' -> need to convert to YYMDD format
+            day = expiry[:2]
+            month_str = expiry[2:].upper()
+            
+            # Map month names to numbers (without leading zero)
+            month_map = {
+                'JAN': '1', 'FEB': '2', 'MAR': '3', 'APR': '4',
+                'MAY': '5', 'JUN': '6', 'JUL': '7', 'AUG': '8',
+                'SEP': '9', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+            }
+            
+            month = month_map.get(month_str, '1')
+            # Get current year dynamically
+            year = datetime.now().strftime('%y')
+            
+            # Format: YYMDD (e.g., 26302 for 2nd March 2026)
+            expiry_code = f"{year}{month}{day}"
+        elif '-' in expiry:
+            # Format: '2026-03-02' -> extract YYMDD
+            date_obj = datetime.strptime(expiry, '%Y-%m-%d')
+            year = date_obj.strftime('%y')
+            month = str(int(date_obj.strftime('%m')))  # Remove leading zero
+            day = date_obj.strftime('%d')
+            expiry_code = f"{year}{month}{day}"
+        else:
+            # Assume it's already in correct format
+            expiry_code = expiry
+        
+        return self._format_option_symbol(trading_symbol, expiry, strike, option_type)
     
     def get_first_option_15min_candle(self, option_symbol: str, exchange: str) -> dict:
         """
@@ -940,8 +1049,9 @@ class Utils:
             end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:30:00"
             
             # Fetch historical candle data for the specific time range
+            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
             historical_response = self.groww.get_historical_candles(
-                groww_symbol=option_symbol,
+                groww_symbol=f"{exchange_upper}-{option_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
@@ -992,8 +1102,9 @@ class Utils:
             start_time = (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
             
             # Fetch historical candle data for option
+            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
             historical_response = self.groww.get_historical_candles(
-                groww_symbol=option_symbol,
+                groww_symbol=f"{exchange_upper}-{option_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
@@ -1045,8 +1156,9 @@ class Utils:
             start_time = (now - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
             
             # Fetch historical candle data
+            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
             historical_response = self.groww.get_historical_candles(
-                groww_symbol=option_symbol,
+                groww_symbol=f"{exchange_upper}-{option_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
@@ -1105,8 +1217,9 @@ class Utils:
             exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
             
             # Fetch historical candle data
+            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
             historical_response = self.groww.get_historical_candles(
-                groww_symbol=option_symbol,
+                groww_symbol=f"{exchange_upper}-{option_symbol}",
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
