@@ -1,6 +1,6 @@
 {
-  "expiry_to_trade": "02Mar",
-  "expiry_to_check": "02Mar",
+  "expiry_to_trade": "02MAR",
+  "expiry_to_check": "02MAR",
   "spread_gap": "200",
   "trading_symbol": "nifty",
   "exchange": "nse",

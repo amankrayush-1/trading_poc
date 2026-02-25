@@ -941,7 +941,7 @@ class Utils:
             }
             
             month = month_map.get(month_str, '1')
-            year = '26'  # Assuming 2026
+            year = datetime.now().strftime('%y')
             
             # Format: YYMDD (e.g., 26302 for 2nd March 2026)
             expiry_code = f"{year}{month}{day}"
@@ -1049,14 +1049,14 @@ class Utils:
             end_time = f"{current_datetime.strftime('%Y-%m-%d')} 09:30:00"
             
             # Fetch historical candle data for the specific time range
-            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
-            historical_response = self.groww.get_historical_candles(
-                groww_symbol=f"{exchange_upper}-{option_symbol}",
+            # Note: get_historical_candle_data works better for FNO options
+            historical_response = self.groww.get_historical_candle_data(
+                trading_symbol=option_symbol,
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
                 end_time=end_time,
-                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+                interval_in_minutes=15
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -1101,15 +1101,15 @@ class Utils:
             end_time = now.strftime("%Y-%m-%d %H:%M:%S")
             start_time = (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
             
-            # Fetch historical candle data for option
-            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
-            historical_response = self.groww.get_historical_candles(
-                groww_symbol=f"{exchange_upper}-{option_symbol}",
+            # Fetch historical candle data for option using get_historical_candle_data
+            # Note: get_historical_candle_data works better for FNO options
+            historical_response = self.groww.get_historical_candle_data(
+                trading_symbol=option_symbol,
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
                 end_time=end_time,
-                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+                interval_in_minutes=15
             )
             
             if historical_response and 'candles' in historical_response and len(historical_response['candles']) > 0:
@@ -1156,14 +1156,14 @@ class Utils:
             start_time = (now - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
             
             # Fetch historical candle data
-            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
-            historical_response = self.groww.get_historical_candles(
-                groww_symbol=f"{exchange_upper}-{option_symbol}",
+            # Note: get_historical_candle_data works better for FNO options
+            historical_response = self.groww.get_historical_candle_data(
+                trading_symbol=option_symbol,
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
                 end_time=end_time,
-                candle_interval=self.groww.CANDLE_INTERVAL_MIN_15
+                interval_in_minutes=15
             )
             
             if not historical_response or 'candles' not in historical_response or len(historical_response['candles']) < 33:
@@ -1217,14 +1217,14 @@ class Utils:
             exchange_const = self.groww.EXCHANGE_NSE if exchange_upper == 'NSE' else self.groww.EXCHANGE_BSE
             
             # Fetch historical candle data
-            # groww_symbol format for options: 'NSE-NIFTY02Mar25550CE'
-            historical_response = self.groww.get_historical_candles(
-                groww_symbol=f"{exchange_upper}-{option_symbol}",
+            # Note: get_historical_candle_data works better for FNO options
+            historical_response = self.groww.get_historical_candle_data(
+                trading_symbol=option_symbol,
                 exchange=exchange_const,
                 segment=self.groww.SEGMENT_FNO,
                 start_time=start_time,
                 end_time=end_time,
-                candle_interval=self._get_candle_interval_constant(interval_minutes)
+                interval_in_minutes=interval_minutes
             )
             
             if not historical_response or 'candles' not in historical_response:
