@@ -919,44 +919,70 @@ class Utils:
             option_type: 'CE' for call or 'PE' for put
             
         Returns:
-            str: Option trading symbol (e.g., 'NIFTY2630225600CE')
+            str: Option trading symbol
             
-        Note: The trading symbol format is SYMBOL + YYMDD + STRIKE + CE/PE
-              For example: NIFTY2630225600CE = NIFTY + 26 (year) + 3 (March) + 02 (2nd) + 25600 + CE
+        Note: Symbol formats differ by exchange:
+              - NSE (NIFTY): NIFTY + YYMDD + STRIKE + CE/PE
+                Example: NIFTY2630225600CE = NIFTY + 26 (year) + 3 (March) + 02 (2nd) + 25600 + CE
+              - BSE (SENSEX): SENSEX + DD + MMM + STRIKE + CE/PE
+                Example: SENSEX26FEB82300CE = SENSEX + 26 (day) + FEB (month) + 82300 + CE
         """
         from datetime import datetime
         
-        # Parse expiry format
-        # If expiry is in format '02Mar', convert to YYMDD format
-        if len(expiry) <= 5 and '-' not in expiry:
-            # Format: '02Mar' -> need to convert to YYMDD format
-            day = expiry[:2]
-            month_str = expiry[2:].upper()
-            
-            # Map month names to numbers (without leading zero)
-            month_map = {
-                'JAN': '1', 'FEB': '2', 'MAR': '3', 'APR': '4',
-                'MAY': '5', 'JUN': '6', 'JUL': '7', 'AUG': '8',
-                'SEP': '9', 'OCT': '10', 'NOV': '11', 'DEC': '12'
-            }
-            
-            month = month_map.get(month_str, '1')
-            year = datetime.now().strftime('%y')
-            
-            # Format: YYMDD (e.g., 26302 for 2nd March 2026)
-            expiry_code = f"{year}{month}{day}"
-        elif '-' in expiry:
-            # Format: '2026-03-02' -> extract YYMDD
-            date_obj = datetime.strptime(expiry, '%Y-%m-%d')
-            year = date_obj.strftime('%y')
-            month = str(int(date_obj.strftime('%m')))  # Remove leading zero
-            day = date_obj.strftime('%d')
-            expiry_code = f"{year}{month}{day}"
-        else:
-            # Assume it's already in correct format
-            expiry_code = expiry
+        trading_symbol_upper = trading_symbol.upper()
         
-        return f"{trading_symbol.upper()}{expiry_code}{strike}{option_type.upper()}"
+        # BSE SENSEX uses different format: SENSEX + DD + MMM + STRIKE + CE/PE
+        if trading_symbol_upper == 'SENSEX':
+            # Parse expiry format
+            if len(expiry) <= 5 and '-' not in expiry:
+                # Format: '02Mar' or '26Feb'
+                day = expiry[:2]
+                month_str = expiry[2:].upper()
+                expiry_code = f"{day}{month_str}"
+            elif '-' in expiry:
+                # Format: '2026-03-02' -> extract DD + MMM
+                date_obj = datetime.strptime(expiry, '%Y-%m-%d')
+                day = date_obj.strftime('%d')
+                month_str = date_obj.strftime('%b').upper()
+                expiry_code = f"{day}{month_str}"
+            else:
+                # Assume it's already in correct format
+                expiry_code = expiry
+            
+            return f"{trading_symbol_upper}{expiry_code}{strike}{option_type.upper()}"
+        
+        # NSE (NIFTY, BANKNIFTY, etc.) uses format: SYMBOL + YYMDD + STRIKE + CE/PE
+        else:
+            # Parse expiry format
+            if len(expiry) <= 5 and '-' not in expiry:
+                # Format: '02Mar' -> need to convert to YYMDD format
+                day = expiry[:2]
+                month_str = expiry[2:].upper()
+                
+                # Map month names to numbers (without leading zero)
+                month_map = {
+                    'JAN': '1', 'FEB': '2', 'MAR': '3', 'APR': '4',
+                    'MAY': '5', 'JUN': '6', 'JUL': '7', 'AUG': '8',
+                    'SEP': '9', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+                }
+                
+                month = month_map.get(month_str, '1')
+                year = datetime.now().strftime('%y')
+                
+                # Format: YYMDD (e.g., 26302 for 2nd March 2026)
+                expiry_code = f"{year}{month}{day}"
+            elif '-' in expiry:
+                # Format: '2026-03-02' -> extract YYMDD
+                date_obj = datetime.strptime(expiry, '%Y-%m-%d')
+                year = date_obj.strftime('%y')
+                month = str(int(date_obj.strftime('%m')))  # Remove leading zero
+                day = date_obj.strftime('%d')
+                expiry_code = f"{year}{month}{day}"
+            else:
+                # Assume it's already in correct format
+                expiry_code = expiry
+            
+            return f"{trading_symbol_upper}{expiry_code}{strike}{option_type.upper()}"
     
     def get_option_strike_symbol(self, spot_price: float, exchange: str, trading_symbol: str,
                                   expiry: str, option_type: str, otm_points: int = 0) -> str:
@@ -972,47 +998,14 @@ class Utils:
             otm_points: Points away from ATM (positive for OTM, negative for ITM)
             
         Returns:
-            str: Option trading symbol (e.g., 'NIFTY2630225600CE')
-            
-        Note: The trading symbol format is SYMBOL + YYMDD + STRIKE + CE/PE
-              For example: NIFTY2630225600CE = NIFTY + 26 (year) + 3 (March) + 02 (2nd) + 25600 + CE
+            str: Option trading symbol
+            - NSE: e.g., 'NIFTY2630225600CE'
+            - BSE: e.g., 'SENSEX26FEB82300CE'
         """
-        from datetime import datetime
-        
         atm_strike = self.get_atm_strike(spot_price, exchange)
         strike = int(atm_strike + otm_points)
         
-        # Parse expiry format
-        # If expiry is in format '02Mar', convert to YYMDD format
-        if len(expiry) <= 5 and '-' not in expiry:
-            # Format: '02Mar' -> need to convert to YYMDD format
-            day = expiry[:2]
-            month_str = expiry[2:].upper()
-            
-            # Map month names to numbers (without leading zero)
-            month_map = {
-                'JAN': '1', 'FEB': '2', 'MAR': '3', 'APR': '4',
-                'MAY': '5', 'JUN': '6', 'JUL': '7', 'AUG': '8',
-                'SEP': '9', 'OCT': '10', 'NOV': '11', 'DEC': '12'
-            }
-            
-            month = month_map.get(month_str, '1')
-            # Get current year dynamically
-            year = datetime.now().strftime('%y')
-            
-            # Format: YYMDD (e.g., 26302 for 2nd March 2026)
-            expiry_code = f"{year}{month}{day}"
-        elif '-' in expiry:
-            # Format: '2026-03-02' -> extract YYMDD
-            date_obj = datetime.strptime(expiry, '%Y-%m-%d')
-            year = date_obj.strftime('%y')
-            month = str(int(date_obj.strftime('%m')))  # Remove leading zero
-            day = date_obj.strftime('%d')
-            expiry_code = f"{year}{month}{day}"
-        else:
-            # Assume it's already in correct format
-            expiry_code = expiry
-        
+        # Use _format_option_symbol which handles exchange-specific formatting
         return self._format_option_symbol(trading_symbol, expiry, strike, option_type)
     
     def get_first_option_15min_candle(self, option_symbol: str, exchange: str) -> dict:
