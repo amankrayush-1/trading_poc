@@ -107,8 +107,8 @@ class Bot3Strategy:
         """
         Check if a candle is a doji candle
         Doji can be either:
-        - Red candle: (abs(close - open) / close < 0.001) and ((close - open) < (high - close + open - low))
-        - Green candle: (abs(open - close) / open < 0.001) and ((open - close) < (high - open + close - low))
+        - Red candle: (abs(open - close) / open < 0.001) and ((open - close) < (high - open + close - low)) and (high - open) > (close - low)
+        - Green candle: (abs(close - open) / close < 0.001) and ((close - open) < (high - close + open - low))
         
         Args:
             candle: Candle dict with 'open', 'high', 'low', 'close' keys
@@ -126,25 +126,26 @@ class Bot3Strategy:
         
         # Check for red candle doji: close < open
         if c < o:
-            body_percentage = abs(c - o) / c
-            condition_1 = body_percentage < 0.001
-            
-            body_size = c - o
-            upper_wick = h - c
-            lower_wick = o - l
-            condition_2 = body_size < (upper_wick + lower_wick)
-            
-            if condition_1 and condition_2:
-                return True
-        
-        # Check for green candle doji: open < close
-        if o < c:
             body_percentage = abs(o - c) / o
             condition_1 = body_percentage < 0.001
             
             body_size = o - c
             upper_wick = h - o
             lower_wick = c - l
+            condition_2 = body_size < (upper_wick + lower_wick)
+            condition_3 = upper_wick > lower_wick
+            
+            if condition_1 and condition_2 and condition_3:
+                return True
+        
+        # Check for green candle doji: open < close
+        if o < c:
+            body_percentage = abs(c - o) / c
+            condition_1 = body_percentage < 0.001
+            
+            body_size = c - o
+            upper_wick = h - c
+            lower_wick = o - l
             condition_2 = body_size < (upper_wick + lower_wick)
             
             if condition_1 and condition_2:
@@ -215,22 +216,34 @@ class Bot3Strategy:
         
         return False
     
-    def monitor_option_for_ema_touch(self, option_symbol: str, ema_high: float, end_time: time) -> bool:
+    def monitor_option_for_ema_touch(self, option_symbol: str, ema_high: float, end_time: time, stop_level: Optional[float] = None) -> Dict[str, Any]:
         """
         Monitor option 15-minute candles for EMA 33 high touch until end_time
+        Also checks if spot price touches stop level (if provided)
         
         Args:
             option_symbol: Option trading symbol to monitor
             ema_high: EMA 33 high value to check against
             end_time: Time to stop monitoring (e.g., 12:00 PM)
+            stop_level: Optional stop level - if spot price touches this, stop monitoring
             
         Returns:
-            bool: True if EMA touch detected, False otherwise
+            Dictionary with 'ema_touched' (bool) and 'stop_hit' (bool)
         """
         print(f"\n--- Monitoring Option {option_symbol} for EMA 33 Touch (until {end_time.strftime('%H:%M:%S')}) ---")
         print(f"EMA 33 High: {ema_high}")
+        if stop_level:
+            print(f"Stop Level: {stop_level} (will stop if spot price touches this level)")
         
         while datetime.now().time() < end_time:
+            # Check stop level first if provided
+            if stop_level:
+                current_spot_price = self.utils.get_spot_price(self.exchange)
+                if current_spot_price and current_spot_price <= stop_level:
+                    print(f"\n✗ Stop level hit! Spot price {current_spot_price} <= Stop level {stop_level}")
+                    print("Stopping trade monitoring - no trade will be placed")
+                    return {"ema_touched": False, "stop_hit": True}
+            
             # Wait for next 15-minute candle completion
             current_time = datetime.now()
             current_minute = current_time.minute
@@ -264,11 +277,11 @@ class Bot3Strategy:
             # Check if candle touches EMA 33 high
             if candle['high'] >= ema_high:
                 print(f"✓ Option candle touched EMA 33 high! (High: {candle['high']} >= EMA: {ema_high})")
-                return True
+                return {"ema_touched": True, "stop_hit": False}
             else:
                 print(f"✗ No EMA touch yet (High: {candle['high']} < EMA: {ema_high})")
         
-        return False
+        return {"ema_touched": False, "stop_hit": False}
     
     def execute(self) -> Dict[str, Any]:
         """
@@ -280,15 +293,16 @@ class Bot3Strategy:
         Step 3: If red bald candle, calculate X = close - 2*ATR + 12.5
         Step 4: Place put spread if spot price touches level X and wait till 11 AM, if doesn't get trade till 11 AM, stop execution
         Step 5: If not red bald candle, check if it's a green bald candle (close - open) / close > .001 or doji candle (either):
+                - Red candle: (abs(open - close) / open < 0.001) and ((open - close) < (high - open + close - low)) and (high - open) > (close - low)
                 - Green candle: (abs(close - open) / close < 0.001) and ((close - open) < (high - close + open - low))
-                - Red candle: (abs(open - close) / open < 0.001) and ((open - close) < (high - open + close - low))
         Step 6: Get 15-min candle OHLC of expiry_to_check OTM call option (ATM + otm_points)
                 based on spot price (15-min candle closing price) - 9:15-9:30 AM candle specifically
         Step 7: Get EMA 33 OHLC of expiry_to_check OTM call option strike
         Step 8: First 15-min option close should be < EMA 33 low, if not stop trade execution
         Step 9: Monitor 15-min candles of options with EMA 33 applied till 12 PM
         Step 10: Enter trade when 15-min option candle touches EMA 33 high, sell call spread
-                 at ITM (ATM + itm_points) based on spot price at that time with expiry_to_trade
+                 at ITM (ATM + itm_points) based on spot price at that time with expiry_to_trade, if spot price have touched
+                 (closing price of first 15 minute candle of spot price - 2*ATR + 12.5) then stop trade, don't take any trade
         Step 11: If first 15-min candle is neither bald nor doji, stop strategy execution
         
         Returns:
@@ -472,7 +486,9 @@ class Bot3Strategy:
         9. Monitor 15-minute candles of options expiry_to_check OTM call option strike and
            observe the option chart on a 15-minute timeframe with EMA 33 applied till 12 PM
         10. Enter the trade when the 15-minute option candle touches EMA 33 high, and sell a
-            call spread at ITM (ATM + itm_points) based on spot price at that time with expiry_to_trade
+            call spread at ITM (ATM + itm_points) based on spot price at that time with expiry_to_trade,
+            if spot price have touched (closing price of first 15 minute candle of spot price - 2*ATR + 12.5)
+            then stop trade, don't take any trade
         
         Args:
             first_15min: First 15-minute candle data
@@ -481,6 +497,12 @@ class Bot3Strategy:
             Dictionary with execution results
         """
         print("\n=== Executing Doji Candle Strategy ===")
+        
+        # Calculate stop level: first 15-min close - 2*ATR + 12.5
+        first_close = first_15min['close']
+        stop_level = first_close - (2 * self.atr) + 12.5
+        print(f"\nStop Level Calculated: {first_close} - 2*{self.atr} + 12.5 = {stop_level}")
+        print(f"If spot price touches {stop_level}, no trade will be placed")
         
         # Step 6: Get 15-minute candle OHLC of expiry_to_check OTM call option strike
         # based on the spot price (15-minute candle closing price) - 9:15-9:30 AM candle
@@ -551,12 +573,26 @@ class Bot3Strategy:
         print("✓ First 15-min option close is below EMA 33 low. Proceeding to monitor...")
         
         # Step 9: Monitor 15-minute candles of options and observe with EMA 33 till 12 PM
+        # Also monitor spot price for stop level
         print("\n--- Step 9: Monitoring Option Candles for EMA 33 High Touch (till 12 PM) ---")
         time_12_00 = time(12, 0)
         
-        ema_touched = self.monitor_option_for_ema_touch(option_symbol, ema_high, time_12_00)
+        monitor_result = self.monitor_option_for_ema_touch(option_symbol, ema_high, time_12_00, stop_level)
         
-        if not ema_touched:
+        # Check if stop level was hit
+        if monitor_result["stop_hit"]:
+            print("\n✗ Stop level hit! No trade will be placed.")
+            return {
+                "status": "success",
+                "action": "no_trade",
+                "reason": "stop_level_hit",
+                "option_symbol": option_symbol,
+                "stop_level": stop_level,
+                "first_candle": first_15min
+            }
+        
+        # Check if EMA was touched
+        if not monitor_result["ema_touched"]:
             print("\n✗ Option did not touch EMA 33 high before 12:00 PM. No trade placed.")
             return {
                 "status": "success",
@@ -602,6 +638,7 @@ class Bot3Strategy:
             "spot_price": current_spot_price,
             "option_symbol_monitored": option_symbol,
             "ema_high": ema_high,
+            "stop_level": stop_level,
             "first_candle": first_15min,
             "order_response": order_response
         }
