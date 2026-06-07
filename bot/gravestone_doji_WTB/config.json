@@ -1,0 +1,35 @@
+{
+  "expiry_to_trade": "5MAR",
+  "expiry_to_check": "5MAR",
+  "spread_gap": "200",
+  "trading_symbol": "sensex",
+  "exchange": "bse",
+  "number_of_lots": "1",
+  "lot_size": "65",
+  "itm_points": "50",
+  "otm_points": "50",
+  "atr": "46",
+  "accounts": [
+    {
+      "name": "Bapi",
+      "token": "eyJraWQiOiJaTUtjVXciLCJhbGciOiJFUzI1NiJ9.eyJleHAiOjI1NjEwMDY5MTQsImlhdCI6MTc3MjYwNjkxNCwibmJmIjoxNzcyNjA2OTE0LCJzdWIiOiJ7XCJ0b2tlblJlZklkXCI6XCJiZTI2OWU5OC1hZjI3LTRjNjYtODJjYi03ZGJkZDI1M2RkMjFcIixcInZlbmRvckludGVncmF0aW9uS2V5XCI6XCJlMzFmZjIzYjA4NmI0MDZjODg3NGIyZjZkODQ5NTMxM1wiLFwidXNlckFjY291bnRJZFwiOlwiNTY1NmU1ODEtZmI4NC00OGYyLTk5NjctYWExODQ2MmQ4ZTdiXCIsXCJkZXZpY2VJZFwiOlwiY2RlZmFlODMtNjQ2Yy01MjU1LThmMmUtNzYzY2RkN2Y2ZWZhXCIsXCJzZXNzaW9uSWRcIjpcIjY4MTlkM2Q4LTM3YWUtNDUyYi1iMGQ5LWFkNDkwZDhiN2VjM1wiLFwiYWRkaXRpb25hbERhdGFcIjpcIno1NC9NZzltdjE2WXdmb0gvS0EwYkVzQmpMRHhxV29paXlMK0ZHb0N6TU5STkczdTlLa2pWZDNoWjU1ZStNZERhWXBOVi9UOUxIRmtQejFFQisybTdRPT1cIixcInJvbGVcIjpcImF1dGgtdG90cFwiLFwic291cmNlSXBBZGRyZXNzXCI6XCIyYTAxOmI3NDA6MTNjNToxMDA6OmU2LDE2Mi4xNTguNTUuMTQsMzUuMjQxLjIzLjEyM1wiLFwidHdvRmFFeHBpcnlUc1wiOjI1NjEwMDY5MTQ5NDV9IiwiaXNzIjoiYXBleC1hdXRoLXByb2QtYXBwIn0.CE5H8Uh_Dh5K1n5hhmPi7XZtFLA10u5dkBDUes9JUQgWj-kVCjmyI0my_n2vZa7jEOqtPR8rqjPOlrp4kvWhKw",
+      "secret": "3ZT0nWC5&z6uj8Nb-Jv^Vlk!%IPP7CZ^",
+      "enabled": true,
+      "number_of_lots": "1"
+    },
+    {
+      "name": "Aman",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
+      "enabled": false,
+      "number_of_lots": "2"
+    },
+    {
+      "name": "Somu Dada",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
+      "enabled": false,
+      "number_of_lots": "2"
+    }
+  ]
+}
