@@ -1,0 +1,39 @@
+{
+  "trading_symbol": "nifty",
+  "exchange": "nse",
+  "number_of_lots": "1",
+  "lot_size": "65",
+  "call": {
+    "strike": "NIFTY26MAR2524200CE",
+    "spread_gap": 200,
+    "level": 24200
+  },
+  "put": {
+    "strike": "NIFTY26MAR2524200PE",
+    "spread_gap": 200,
+    "level": 24200
+  },
+  "accounts": [
+    {
+      "name": "Bapi",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
+      "enabled": true,
+      "number_of_lots": "1"
+    },
+    {
+      "name": "Aman",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
+      "enabled": false,
+      "number_of_lots": "2"
+    },
+    {
+      "name": "Somu Dada",
+      "token": "api_key_here",
+      "secret": "api_secret_here",
+      "enabled": false,
+      "number_of_lots": "2"
+    }
+  ]
+}
